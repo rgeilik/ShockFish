@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "utility.h"
 #include "bitboard.h"
+#include <windows.h>
 
 
 /* --------------LEAPER PIECES ATTACKS----------------- */
@@ -11,6 +12,141 @@ extern BBOARD knight_attacks[BOARD_SIZE]; // Define knight attack tables
 extern BBOARD king_attacks[BOARD_SIZE]; // Define king attack tables
 
 
+BBOARD magicNumsRook[64] = {
+	0x8a80104000800020ULL,
+	0x473234BACB5E535B,
+	0xE2F4B99375123507,
+	0x9152D96E207B69A,
+	0xC908512355A9EF21,
+	0xD196C763A64EFB25,
+	0x473234BACB5E535B,
+	0xC908512355A9EF21,
+	0xE2F4B99375123507,
+	0x3B5F4E404B914492,
+	0x64B40A5EA0F2F2A9,
+	0x7BB0AA1A522D205B,
+	0x2464E109ED9638F2,
+	0x22CA05769D150A1D,
+	0x7BB0AA1A522D205B,
+	0x7BB0AA1A522D205B,
+	0x3B5F4E404B914492,
+	0x3B5F4E404B914492,
+	0x7BB0AA1A522D205B,
+	0x473234BACB5E535B,
+	0x7BB0AA1A522D205B,
+	0x64B40A5EA0F2F2A9,
+	0xC908512355A9EF21,
+	0x7BB0AA1A522D205B,
+	0x7BB0AA1A522D205B,
+	0x7BB0AA1A522D205B,
+	0x7BB0AA1A522D205B,
+	0xC908512355A9EF21,
+	0xC908512355A9EF21,
+	0xF30928E4B5645481,
+	0xE2F4B99375123507,
+	0x7BB0AA1A522D205B,
+	0xE2F4B99375123507,
+	0x7BB0AA1A522D205B,
+	0xB5A65DD5DCEC0790,
+	0x7BB0AA1A522D205B,
+	0x3B5F4E404B914492,
+	0x30FBE02DF4F57C34,
+	0x473234BACB5E535B,
+	0x473234BACB5E535B,
+	0x7BB0AA1A522D205B,
+	0x67BB4A907FA4666,
+	0x473234BACB5E535B,
+	0x3B5F4E404B914492,
+	0x8B9BF87193838BEF,
+	0x473234BACB5E535B,
+	0x67BB4A907FA4666,
+	0xF30928E4B5645481,
+	0x67BB4A907FA4666,
+	0x22CA05769D150A1D,
+	0x7BB0AA1A522D205B,
+	0x473234BACB5E535B,
+	0x7BB0AA1A522D205B,
+	0xF4877A308619283F,
+	0xCB5BCF6E3AB0C387,
+	0xCB5BCF6E3AB0C387,
+	0x314B511F0889C297,
+	0x2464E109ED9638F2,
+	0xC908512355A9EF21,
+	0xF30928E4B5645481
+
+};
+
+BBOARD magicNumsBishop[64] = {
+	0xE6F3B194C557A988,
+	0x443E9610D3A351EC,
+	0x51C855D0C2DF22B1,
+	0x57608C375A9F5E7B,
+	0x8A6548E7FA9DC74B,
+	0x95AE0383BA3FC130,
+	0xC41CEF215704C6B8,
+	0xF0E53ADC76F1096E,
+	0xB92800E980010A3E,
+	0xB92800E980010A3E,
+	0xE935160A7E5AC541,
+	0x73EA558B534D2BE,
+	0x3545835B225BA24E,
+	0x45EEAD855229A417,
+	0x3D4CB877A5099431,
+	0x3D4CB877A5099431,
+	0x803A92A749066E4E,
+	0x803A92A749066E4E,
+	0x4AE2FE3413E2B613,
+	0x5A4DAB087D92810,
+	0xB8FB835E5F51971A,
+	0xED4AFA3D0289A6A,
+	0x5FCA9CBE648123C3,
+	0x45EEAD855229A417,
+	0x86491C4545619243,
+	0x86491C4545619243,
+	0x33DEA6BC8F50FF4A,
+	0x33C4ABAC5297C76F,
+	0x417A9E1EA7FE00D7,
+	0x1FA842C8489A5757,
+	0xF13882DEA31056A0,
+	0xC46FD95337BA7735,
+	0xFE96DC3C558FD017,
+	0xE2F31FA57B378D3,
+	0x77BC2151A335D1C4,
+	0x1786AE52FE834715,
+	0xADB769B7E308F60B,
+	0x2FA5C6A61D10842D,
+	0xFE96DC3C558FD017,
+	0x83119CDAA3BB36A3,
+	0x6F9938682451E07A,
+	0xBE5695A2B712B87A,
+	0x4B430823C3E288B6,
+	0x449EFD4267D7FCDE,
+	0xD2E653C50A1582C7,
+	0xA61DB457AC03EB11,
+	0x8A8C4BE5A6953219,
+	0x78BD792743334B33,
+	0xC41CEF215704C6B8,
+	0xC41CEF215704C6B8,
+	0x7C1F66BB69A1029A,
+	0x6306D2A69F820D55,
+	0xB465A75281DF1DDF,
+	0x3ED0D4FDE1B76909,
+	0x443E9610D3A351EC,
+	0x443E9610D3A351EC,
+	0xF0E53ADC76F1096E,
+	0x3D4CB877A5099431,
+	0xFE7AA16540E0100,
+	0x443E9610D3A351EC,
+	0x5A4DAB087D92810,
+	0xBF81437763EC239E,
+	0xB92800E980010A3E,
+	0xE6F3B194C557A988
+};
+
+typedef struct {
+	BBOARD mask;
+	BBOARD magic;
+} SMagic;
 
 // Function to count set bits in bitboard
 static inline int count_bits(BBOARD bitboard) {
@@ -245,7 +381,7 @@ void print_occupancy_bits(int piece) {
 
 
 //GENERATE ALL POSSIBLE BLOCKER ARRANGEMENTS 
-BBOARD gen_blocker_patterns(BBOARD attackMask) {
+BBOARD* gen_blocker_patterns(BBOARD attackMask) {
 	
 	int bitCount = count_bits(attackMask);  // Determine the number of set bits
 	//printf("Number of non-zero bits: %d\n", bitCount);
@@ -270,12 +406,12 @@ BBOARD gen_blocker_patterns(BBOARD attackMask) {
 	int numPatterns = 1ULL << bitCount;
 	//printf("Expected blocker patterns: %d\n", numPatterns);
 
-	BBOARD blockerPatterns[4096];
-	/* BBOARD* blockerPatterns = (BBOARD*)malloc(numPatterns * sizeof(BBOARD));
+	
+	 BBOARD* blockerPatterns = (BBOARD*)malloc(numPatterns * sizeof(BBOARD));
 	if (blockerPatterns == NULL) {
 		printf("Memory allocation failed!\n");
 		return 0ULL; // Handle memory allocation failure
-	} */
+	} 
 	
 	for (int pattern = 0; pattern < numPatterns; pattern++) {
 		blockerPatterns[pattern] = 0ULL;
@@ -314,8 +450,8 @@ BBOARD generate_magics(int square, int relevantBits, int piece) {
 	BBOARD attackMask[4096]; // Attack mask after applying blockers
 	BBOARD used[4096];
 	BBOARD* generatedPatterns = gen_blocker_patterns(mask);
-	BBOARD magic;
-	int k, i, index;
+	
+	int k, i;
 
 	// Check if the output is not NULL before copying
 	if (generatedPatterns != NULL) {
@@ -326,15 +462,18 @@ BBOARD generate_magics(int square, int relevantBits, int piece) {
 		}
 
 		for (int k = 0; k < 100000000; k++) {
-			int fail = 0;
+			
 			BBOARD magic = prng_u64(&rng);
-			if (count_bits((mask * magic) & 0xFF00000000000000ULL)) continue;
-			for (int i = 0; i < 4096; i++) used[i] = 0ULL;
+			if (count_bits((mask * magic) & 0xFF00000000000000ULL) < 6) continue;
 
+			memset(used, 0ULL, sizeof(used));
+
+			int i, fail = 0;
 			for (int i = 0, fail = 0; !fail && i < (1 << relevantBits); i++) {
 				int index = transform(blockers[i], magic, relevantBits);
-				if (used[index] == 0ULL) used[index] = attackMask[i];
-				else if (used[index] != attackMask[i]) fail = 1;
+				if (used[index] == 0ULL) { used[index] = attackMask[i]; }
+				else if (used[index] != attackMask[i]) { fail = 1; }
+				
 			}
 
 			if (!fail) { 
@@ -356,16 +495,99 @@ BBOARD generate_magics(int square, int relevantBits, int piece) {
 
 
 int main() {
+	
+	
+	// Declare dynamic arrays
+	BBOARD** mRookAttacks;
+	BBOARD** mBishopAttacks; 
 
-	init_leaper_attacks();
+	// Allocate memory
+	const int NUM_SQUARES = 64;
+	const int NUM_PATTERNS_ROOK = 4096;
+	const int NUM_PATTERNS_BISHOP = 512;
+
+	// Allocate memory for rook attacks
+	mRookAttacks = malloc(NUM_SQUARES * sizeof(BBOARD*));
+	for (int i = 0; i < NUM_SQUARES; i++) {
+		mRookAttacks[i] = malloc(NUM_PATTERNS_ROOK * sizeof(BBOARD));
+	}
+
+	// Allocate memory for bishop attacks
+	mBishopAttacks = malloc(NUM_SQUARES * sizeof(BBOARD*));
+	for (int i = 0; i < NUM_SQUARES; i++) {
+		mBishopAttacks[i] = malloc(NUM_PATTERNS_BISHOP * sizeof(BBOARD));
+	}
+	
+
+	int seenMagicIndexes[4096] = { 0 };
+
+
+	BBOARD* rookPatterns;
+	BBOARD* bishopPatterns;
+	for (int square = 0; square < 64; square++) {
+		rookPatterns = gen_blocker_patterns(rook_relevant_occupancy(square));
+		bishopPatterns = gen_blocker_patterns(bishop_relevant_occupancy(square));
+		
+		for (int pattern = 0; pattern < (1 << rook_relevant_bitCount[square]); pattern++) {
+			int magicIndex = (int)((rookPatterns[pattern] * magicNumsRook[square]) >> (64 - 12));
+			printf("\n\n\nMagic Index (Rook): %d            ", magicIndex);
+			//printf("Square: %d          ", square);
+			//printf("Pattern: %d\n\n", pattern);
+			mRookAttacks[square][magicIndex] = rook_attack_mask(square, rookPatterns[pattern]);
+			printf("Iteration %d\n", pattern);
+			printBitboard(mRookAttacks[square][magicIndex]);
+			
+			if (seenMagicIndexes[magicIndex]) { printf("WARNING: MAGIC INDEX %d HAS ALREADY BEEN SEEN", magicIndex); getchar(); }
+			else { seenMagicIndexes[magicIndex] = 1; }
+			//if (magicIndex == 1028) {
+				//getchar();
+			//}	
+		} 
+		for (int k = 0; k < 4096; k++) { seenMagicIndexes[k] = 0; }
+		printf("seenMagicIndexes has been reset!");
+		getchar();
+		
+
+	} 
+	
+	rookPatterns = gen_blocker_patterns(rook_relevant_occupancy(a8));
+	printBitboard(rookPatterns[1]);
+	int index = (int)((rookPatterns[1] * magicNumsRook[a8]) >> (64 - 12));
+	printf("\nMagic Index: %d\n\n", index);
+	printBitboard(mRookAttacks[a8][index]); 
+	//printBitboard(rook_attack_mask(a8, rookPatterns[1])); 
+	
+
+	
+	// Free memory for rook attacks
+	for (int i = 0; i < NUM_SQUARES; i++) {
+		free(mRookAttacks[i]);
+	}
+	free(mRookAttacks);
+
+	// Free memory for bishop attacks
+	for (int i = 0; i < NUM_SQUARES; i++) {
+		free(mBishopAttacks[i]);
+	}
+	free(mBishopAttacks); 
+
+	
+
+
+	/*
 	BBOARD magicNumbersRook[64];
 	BBOARD magicNumbersBishop[64];
+
+
 	for (int square = 0; square < 64; square++) {
-	;
+		;
 		magicNumbersRook[square] = generate_magics(square, rook_relevant_bitCount[square], rook);
 		magicNumbersBishop[square] = generate_magics(square, bishop_relevant_bitCount[square], bishop);
-		
-	}
-	printBitboard(magicNumbersRook[e4]);
+		printf("0x%llX, \n", magicNumbersRook[square]);
+	} */
+
+	init_leaper_attacks(); 
+	
+	
 	return 0;
 }

@@ -69,4 +69,16 @@ void prng_init(prng_state* p) {
 	return count;
 } */
 
+/*
+BBOARD magicNumbersRook[64];
+BBOARD magicNumbersBishop[64];
+
+
+for (int square = 0; square < 64; square++) {
+;
+	magicNumbersRook[square] = generate_magics(square, rook_relevant_bitCount[square], rook);
+	magicNumbersBishop[square] = generate_magics(square, bishop_relevant_bitCount[square], bishop);
+	printf("0x%llX, \n", magicNumbersBishop[square]);
+} */
+
 
