@@ -128,7 +128,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="bitboard.c" />
-    <ClCompile Include="test.c" />
+    <ClCompile Include="randomstuff.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bitboard.h" />

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "utility.h"
 #include <stdio.h>
 #include <inttypes.h>
@@ -20,6 +20,61 @@ BBOARD knight_attack_mask(int square);
 BBOARD king_attack_mask(int square);
 void init_leaper_attacks(); // Function to initialize leaper attacks
 void printBitboard(BBOARD bitboard); // Declare print function if you need to use it in test.c
+
+
+
+
+enum {
+	a8, b8, c8, d8, e8, f8, g8, h8,
+	a7, b7, c7, d7, e7, f7, g7, h7,
+	a6, b6, c6, d6, e6, f6, g6, h6,
+	a5, b5, c5, d5, e5, f5, g5, h5,
+	a4, b4, c4, d4, e4, f4, g4, h4,
+	a3, b3, c3, d3, e3, f3, g3, h3,
+	a2, b2, c2, d2, e2, f2, g2, h2,
+	a1, b1, c1, d1, e1, f1, g1, h1, no_sq
+
+}; // Board is reversed because a1 = 1 is top left and h8 = 64
+
+enum { black, white }; // Alias for sides, white = 1 and black = 0
+enum { rook, bishop }; // Alias for slider pieces, rook = 0 and bishop = 1
+enum { P, N, B, R, Q, K, p, n, b, r, q, k }; // Piece encoding  
+enum { wk = 1, wq = 2, bk = 4, bq = 8 }; // Castling rights encoding in the form of 4-bit flag 0000
+
+
+
+const char* index_to_coordinate[] = {
+	"a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8",
+	"a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
+	"a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6",
+	"a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5",
+	"a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4",
+	"a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3",
+	"a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2",
+	"a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
+};
+
+// ASCII pieces
+const char ascii_pieces[12] = { "PNBRQKpnbrqk" };
+
+// Encode ASCII chars back to int values
+int ascii_to_code[128] = {
+	['P'] = P,['N'] = N,['B'] = B,['R'] = R,
+	['Q'] = Q,['K'] = K,['p'] = p,['n'] = n,
+	['b'] = b,['r'] = r,['q'] = q,['k'] = k
+};
+
+
+
+// Masks for file exclusions
+extern const BBOARD not_A_file = 18374403900871474942ULL;
+extern const BBOARD not_H_file = 9187201950435737471ULL;
+extern const BBOARD not_AB_file = 18229723555195321596ULL;
+extern const BBOARD not_HG_file = 4557430888798830399ULL;
+extern const BBOARD not_edges = 35604928818740736ULL;
+//extern const BBOARD not_1_rank = 72057594037927935ULL;
+//extern const BBOARD not_8_rank = 18446744073709551360ULL;
+
 
 // Number of relevant occupancy bits for each square for the Rook
 const int rook_relevant_bitCount[64] = {
@@ -45,40 +100,138 @@ const int bishop_relevant_bitCount[64] = {
 	6, 5, 5, 5, 5, 5, 5, 6
 };
 
-static inline BBOARD prng_u64(prng_state* const p)
-{
-	BBOARD  state = p->state;
-	state ^= state >> 12;
-	state ^= state << 25;
-	state ^= state >> 27;
-	p->state = state;
-	return state * UINT64_C(2685821657736338717);
-}
 
-// Function to initialize the PRNG
-void prng_init(prng_state* p) {
-	p->state = (BBOARD)time(NULL);
-}
 
-/* int countNonZeroElements(int arr[], int size) {
-	int count = 0;
 
-	for (int i = 0; i < size; i++) {
-		if (arr[i] != 0) { count++; }
-	}
-	return count;
-} */
+
+
+
+
+
+
 
 /*
-BBOARD magicNumbersRook[64];
-BBOARD magicNumbersBishop[64];
+|-------------------------------------|
+|                                     |
+|           MAGIC NUMBERS             |
+|                                     |
+|-------------------------------------| 
+*/
 
+random_state = 1785933498;
 
-for (int square = 0; square < 64; square++) {
-;
-	magicNumbersRook[square] = generate_magics(square, rook_relevant_bitCount[square], rook);
-	magicNumbersBishop[square] = generate_magics(square, bishop_relevant_bitCount[square], bishop);
-	printf("0x%llX, \n", magicNumbersBishop[square]);
+// generate 32-bit pseudo legal numbers
+unsigned int get_random_U32_number()
+{
+	// get current state
+	unsigned int number = random_state;
+
+	// XOR shift algorithm
+	number ^= number << 13;
+	number ^= number >> 17;
+	number ^= number << 5;
+
+	// update random number state
+	random_state = number;
+
+	// return random number
+	return number;
+}
+
+// generate 64-bit pseudo legal numbers
+BBOARD get_random_U64_number()
+{
+	// define 4 random numbers
+	BBOARD n1, n2, n3, n4;
+
+	// init random numbers slicing 16 bits from MS1B side
+	n1 = (BBOARD)(get_random_U32_number()) & 0xFFFF;
+	n2 = (BBOARD)(get_random_U32_number()) & 0xFFFF;
+	n3 = (BBOARD)(get_random_U32_number()) & 0xFFFF;
+	n4 = (BBOARD)(get_random_U32_number()) & 0xFFFF;
+
+	// return random number
+	return n1 | (n2 << 16) | (n3 << 32) | (n4 << 48);
+}
+
+// generate magic number candidate
+BBOARD generate_magic_candidate()
+{
+	return get_random_U64_number() & get_random_U64_number() & get_random_U64_number();
+}
+
+// Transform blockers and magic number into index
+int transform(BBOARD blockers, BBOARD magic, int piece) {
+	return (int)((blockers * magic) >> (64 - (piece ? 9 : 12)));
+}
+
+/*
+// MAGIC NUMBER GENERATOR
+BBOARD generate_magics(int square, int relevantBits, int piece) {
+
+	BBOARD mask = piece ? bishop_relevant_occupancy(square) : rook_relevant_occupancy(square);
+	BBOARD blockers[4096];
+	BBOARD attackMask[4096]; // Attack mask after applying blockers
+	BBOARD used[4096]; // Array to store used magic index - attackMask pairs
+	BBOARD* generatedPatterns = gen_blocker_patterns(mask);
+
+	// Check if the output is not NULL before copying
+	if (generatedPatterns != NULL) {
+		for (int i = 0; i < (1 << relevantBits); i++) {
+			blockers[i] = generatedPatterns[i];
+			//printBitboard(blockers[i]); Blockers[] works fine
+			attackMask[i] = piece ? bishop_attack_mask(square, blockers[i]) : rook_attack_mask(square, blockers[i]);
+			//printBitboard(attackMask[i]); attackMask[] also works fine
+
+		}
+
+		for (int k = 0; k < 100000000; k++) {
+
+			BBOARD magic = generate_magic_candidate();
+			if (count_bits((mask * magic) & 0xFF00000000000000ULL) < 6) continue;
+			//printf("Magic Number being tested: 0x%llX \n\n", magic);
+			//getchar();
+
+			memset(used, 0ULL, sizeof(used));
+			//printf("\n\n%d\n\n", used[100]); //used is set to 0 properly
+
+			int fail = 0;
+			for (int j = 0; j < (1 << relevantBits); j++) { // i is pattern index, fail is flag for magic number validation
+
+				//printf("Blockers bitboard: \n\n");
+				//printBitboard(blockers[j]);
+				int index = transform(blockers[j], magic, piece); // Magic Index calculation
+				//printf("Magic Index Tested: %d\n\n", index);
+
+				if (used[index] == 0ULL) {
+
+					used[index] = attackMask[j];
+					//printf("Index has not been used yet: setting to \n"); 
+					//printBitboard(attackMask[j]);
+
+				} // If entry in used[] corresponding to the magic Index is empty, set it to th relevant attackMask
+
+				else if (used[index] != attackMask[j]) { fail = 1; printf("\n\nINVALID COLLISION\n"); break; } // If entry in used[] corresponding to the magic index is not empty and isn't the 
+
+			}
+			//printf("\nFail is equal to %d\n", fail);
+			//getchar();
+			if (!fail) {
+				//printf("\n\n\nMAGIC NUMBER FOUND FOR %s: %llu\n\n\n", index_to_coordinate[square], magic); 
+				return magic;
+			}
+		}
+
+		printf("\n\n********FAILED*******\n\n");
+		return 0ULL;
+	}
+
+	else {
+		printf("Error generating blocker patterns!\n");
+	}
+
+	return 0ULL;
 } */
+ 
 
 

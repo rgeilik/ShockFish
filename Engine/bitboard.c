@@ -1,11 +1,25 @@
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <stdlib.h>
 #include "utility.h"
 #include "bitboard.h"
 #include <windows.h>
+#include <string.h>
 
+/*
+|---------------------------------------------|
+|                                             |
+|           IMPORTANT DEFINITIONS             |
+|                                             |
+|---------------------------------------------| 
+*/
 
-/* --------------LEAPER PIECES ATTACKS----------------- */
+// CORE BITBOARDS AND FLAGS
+BBOARD bitboards[12];
+BBOARD occupancy[2];
+int side = -1; // No side to move (illegal)
+int ep = no_sq; // En Passant square (illegal)
+int castling;
+
 
 extern BBOARD pawn_attacks[2][BOARD_SIZE]; // Define pawn attack table
 extern BBOARD knight_attacks[BOARD_SIZE]; // Define knight attack tables
@@ -13,140 +27,163 @@ extern BBOARD king_attacks[BOARD_SIZE]; // Define king attack tables
 
 
 BBOARD magicNumsRook[64] = {
-	0x8a80104000800020ULL,
-	0x473234BACB5E535B,
-	0xE2F4B99375123507,
-	0x9152D96E207B69A,
-	0xC908512355A9EF21,
-	0xD196C763A64EFB25,
-	0x473234BACB5E535B,
-	0xC908512355A9EF21,
-	0xE2F4B99375123507,
-	0x3B5F4E404B914492,
-	0x64B40A5EA0F2F2A9,
-	0x7BB0AA1A522D205B,
-	0x2464E109ED9638F2,
-	0x22CA05769D150A1D,
-	0x7BB0AA1A522D205B,
-	0x7BB0AA1A522D205B,
-	0x3B5F4E404B914492,
-	0x3B5F4E404B914492,
-	0x7BB0AA1A522D205B,
-	0x473234BACB5E535B,
-	0x7BB0AA1A522D205B,
-	0x64B40A5EA0F2F2A9,
-	0xC908512355A9EF21,
-	0x7BB0AA1A522D205B,
-	0x7BB0AA1A522D205B,
-	0x7BB0AA1A522D205B,
-	0x7BB0AA1A522D205B,
-	0xC908512355A9EF21,
-	0xC908512355A9EF21,
-	0xF30928E4B5645481,
-	0xE2F4B99375123507,
-	0x7BB0AA1A522D205B,
-	0xE2F4B99375123507,
-	0x7BB0AA1A522D205B,
-	0xB5A65DD5DCEC0790,
-	0x7BB0AA1A522D205B,
-	0x3B5F4E404B914492,
-	0x30FBE02DF4F57C34,
-	0x473234BACB5E535B,
-	0x473234BACB5E535B,
-	0x7BB0AA1A522D205B,
-	0x67BB4A907FA4666,
-	0x473234BACB5E535B,
-	0x3B5F4E404B914492,
-	0x8B9BF87193838BEF,
-	0x473234BACB5E535B,
-	0x67BB4A907FA4666,
-	0xF30928E4B5645481,
-	0x67BB4A907FA4666,
-	0x22CA05769D150A1D,
-	0x7BB0AA1A522D205B,
-	0x473234BACB5E535B,
-	0x7BB0AA1A522D205B,
-	0xF4877A308619283F,
-	0xCB5BCF6E3AB0C387,
-	0xCB5BCF6E3AB0C387,
-	0x314B511F0889C297,
-	0x2464E109ED9638F2,
-	0xC908512355A9EF21,
-	0xF30928E4B5645481
+	0x80002450814000,
+	0x1004008900300140,
+	0x2404052410200008,
+	0xA10007058000280,
+	0x40040800120001,
+	0x200020000830410,
+	0x2B00088000490402,
+	0x8100009100002042,
+	0x2010400340126008,
+	0x400400040096410,
+	0x244080068088400,
+	0x98008108004020,
+	0x4004201003005012,
+	0x800400124020002,
+	0x8000A48042000408,
+	0x128316010050,
+	0x8042408001611280,
+	0x480102000200800,
+	0x304081800248008,
+	0x810500800090200,
+	0x96100100802440,
+	0x4000048002000080,
+	0x211006000800100,
+	0x2000530880,
+	0x2022006200210010,
+	0x8048002920080800,
+	0x8064014082008800,
+	0x1000A28008100008,
+	0xC40A1080082400,
+	0x8000080100088445,
+	0xC48044080040119,
+	0x4004002008014114,
+	0x180004010100620,
+	0xC0602082814C0030,
+	0x90042408000A0081,
+	0x1108100024501002,
+	0x4042011040040080,
+	0x9102004010500,
+	0x100C481008600080,
+	0x4000980108,
+	0x40010800A5000,
+	0x180220213003,
+	0x60800C008403100,
+	0x1490000486001801,
+	0x80020119220001,
+	0xA12088100200210,
+	0x8010008028062,
+	0x200801140100,
+	0x50C004080190028,
+	0x30401400820402,
+	0x104C02410000810,
+	0x8110005900044021,
+	0x400010015800490,
+	0x5404040100080100,
+	0x4003008024420008,
+	0x1000401012E4200,
+	0x22030038804122,
+	0x60D0008203082,
+	0xC042000081129,
+	0x8001200AC2001002,
+	0x1CA00041012,
+	0x101000C0008020B,
+	0x600108004120363,
+	0xC8240041002082
 
 };
 
 BBOARD magicNumsBishop[64] = {
-	0xE6F3B194C557A988,
-	0x443E9610D3A351EC,
-	0x51C855D0C2DF22B1,
-	0x57608C375A9F5E7B,
-	0x8A6548E7FA9DC74B,
-	0x95AE0383BA3FC130,
-	0xC41CEF215704C6B8,
-	0xF0E53ADC76F1096E,
-	0xB92800E980010A3E,
-	0xB92800E980010A3E,
-	0xE935160A7E5AC541,
-	0x73EA558B534D2BE,
-	0x3545835B225BA24E,
-	0x45EEAD855229A417,
-	0x3D4CB877A5099431,
-	0x3D4CB877A5099431,
-	0x803A92A749066E4E,
-	0x803A92A749066E4E,
-	0x4AE2FE3413E2B613,
-	0x5A4DAB087D92810,
-	0xB8FB835E5F51971A,
-	0xED4AFA3D0289A6A,
-	0x5FCA9CBE648123C3,
-	0x45EEAD855229A417,
-	0x86491C4545619243,
-	0x86491C4545619243,
-	0x33DEA6BC8F50FF4A,
-	0x33C4ABAC5297C76F,
-	0x417A9E1EA7FE00D7,
-	0x1FA842C8489A5757,
-	0xF13882DEA31056A0,
-	0xC46FD95337BA7735,
-	0xFE96DC3C558FD017,
-	0xE2F31FA57B378D3,
-	0x77BC2151A335D1C4,
-	0x1786AE52FE834715,
-	0xADB769B7E308F60B,
-	0x2FA5C6A61D10842D,
-	0xFE96DC3C558FD017,
-	0x83119CDAA3BB36A3,
-	0x6F9938682451E07A,
-	0xBE5695A2B712B87A,
-	0x4B430823C3E288B6,
-	0x449EFD4267D7FCDE,
-	0xD2E653C50A1582C7,
-	0xA61DB457AC03EB11,
-	0x8A8C4BE5A6953219,
-	0x78BD792743334B33,
-	0xC41CEF215704C6B8,
-	0xC41CEF215704C6B8,
-	0x7C1F66BB69A1029A,
-	0x6306D2A69F820D55,
-	0xB465A75281DF1DDF,
-	0x3ED0D4FDE1B76909,
-	0x443E9610D3A351EC,
-	0x443E9610D3A351EC,
-	0xF0E53ADC76F1096E,
-	0x3D4CB877A5099431,
-	0xFE7AA16540E0100,
-	0x443E9610D3A351EC,
-	0x5A4DAB087D92810,
-	0xBF81437763EC239E,
-	0xB92800E980010A3E,
-	0xE6F3B194C557A988
+	0xA020008180803880,
+	0x80C010046000202,
+	0x8005042002100,
+	0xA01082010000,
+	0x120210041002,
+	0x24100084120080,
+	0x24C8051124061290,
+	0x20041248040208,
+	0x180200214004810,
+	0xB4200152004421,
+	0x5180004350210004,
+	0x203040408020,
+	0x80404708000440,
+	0x48200A110029046,
+	0x4001009160280A00,
+	0x40009148050209,
+	0x400408200420C200,
+	0x88083842022220,
+	0x200480411140005,
+	0x280840606020006,
+	0x2400880400200406,
+	0x104820890080400,
+	0x8002020241008882,
+	0x30A8000C000801,
+	0x2404188803081280,
+	0x1000010954C1,
+	0x118080001420004,
+	0x2080004004008,
+	0x4840010802000,
+	0x8000410020500220,
+	0x40288158086A0,
+	0x406B00302102400,
+	0x802911002400024,
+	0x4040822008880440,
+	0x1000180040080080,
+	0x400020080080081,
+	0x4040400001100,
+	0x400202100009000,
+	0x808214400800,
+	0x4101580072480,
+	0x4101006C800080,
+	0x920D040100860400,
+	0x1000522802000128,
+	0x2800048090400060,
+	0x80040404100012,
+	0x11402A04403081,
+	0x8004080A00200,
+	0x1404C82204210008,
+	0x50040500200,
+	0x400100404228002,
+	0x80200204280A8002,
+	0x400000212802820,
+	0x8000004010212000,
+	0x20040420A021680,
+	0x2000600808948500,
+	0x150208C0200C20,
+	0xA8090080102240A,
+	0x2002024089D00800,
+	0x2200000C88045400,
+	0x400020822020203,
+	0x412001000C008808,
+	0x41100A980100C250,
+	0x80880408818,
+	0x800422408402018
 };
 
 typedef struct {
 	BBOARD mask;
 	BBOARD magic;
 } SMagic;
+
+
+SMagic mBishopTb1[64];
+SMagic mRookTb1[64];
+
+BBOARD** mRookAttacks;
+BBOARD** mBishopAttacks;
+
+
+
+/*
+|----------------------------------------|
+|                                        |
+|           HELPER FUNCTIONS             |
+|                                        |
+|----------------------------------------|
+*/
+
+
 
 // Function to count set bits in bitboard
 static inline int count_bits(BBOARD bitboard) {
@@ -166,6 +203,26 @@ static inline int count_bits(BBOARD bitboard) {
 	i = (i & 0x3333333333333333UL) + ((i >> 2) & 0x3333333333333333UL);
 	return (int)(((i + (i >> 4)) & 0xF0F0F0F0F0F0F0FUL) * 0x101010101010101UL >> 56);
 } */
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+|---------------------------------------------|
+|                                             |
+|           LEAPER PIECES ATTACKS             |
+|                                             |
+|---------------------------------------------| 
+*/
 
 //GENERATE PAWN ATTACK MASK
 BBOARD pawn_attack_mask(int color, int square) {
@@ -251,7 +308,16 @@ void init_leaper_attacks() {
 	
 }
 
-/* ----------------------SLIDER PIECES ATTACKS (MAGIC BITBOARDS)------------------- */
+
+
+
+/*
+|---------------------------------------------|
+|                                             |
+|           SLIDER PIECES ATTACKS             |
+|                                             |
+|---------------------------------------------| 
+*/
 
 // GENERATE BISHOP RELEVANT OCCUPANCY MASK
 BBOARD bishop_relevant_occupancy(int square) {
@@ -356,7 +422,7 @@ BBOARD rook_attack_mask(int square, BBOARD blockers) {
 	return attacks;
 }
 
-//Relevant occupancy bit precalcluated generator
+//Relevant occupancy bit precalculated generator
 void print_occupancy_bits(int piece) {
 	if (!piece) {
 		for (int rank = 0; rank < 8; rank++) {
@@ -378,6 +444,9 @@ void print_occupancy_bits(int piece) {
 		}
 	}
 }
+
+
+
 
 
 //GENERATE ALL POSSIBLE BLOCKER ARRANGEMENTS 
@@ -432,161 +501,115 @@ BBOARD* gen_blocker_patterns(BBOARD attackMask) {
 	return blockerPatterns; 
 }
 
-// Transform blockers and magic number into index
-int transform(BBOARD blockers, BBOARD magic, int relevantBits) {
-	return (int)((blockers * magic) >> (64 - relevantBits));
-}
 
-// MAGIC NUMBER GENERATOR
-BBOARD generate_magics(int square, int relevantBits, int piece) {
-	// Initialize the PRNG state
-	prng_state rng;
 
-	// Get the current time as the seed
-	prng_init(&rng);
 
-	BBOARD mask = piece ? bishop_relevant_occupancy(square) : rook_relevant_occupancy(square);
-	BBOARD blockers[4096];
-	BBOARD attackMask[4096]; // Attack mask after applying blockers
-	BBOARD used[4096];
-	BBOARD* generatedPatterns = gen_blocker_patterns(mask);
+
+
+
+// INITIALISE ROOK AND BISHOP ATTACK TABLES AND MAGICS
+void init_slider_attackTables(int piece) {
+
+	BBOARD* rookPatterns;
+	BBOARD* bishopPatterns;
+
 	
-	int k, i;
 
-	// Check if the output is not NULL before copying
-	if (generatedPatterns != NULL) {
-		for (int i = 0; i < (1 << relevantBits); i++) {
-			blockers[i] = generatedPatterns[i]; 
-			//printBitboard(blockers[i]);
-			attackMask[i] = piece ? bishop_attack_mask(square, blockers[i]) : rook_attack_mask(square, blockers[i]);
-		}
+	// Allocate memory for rook attacks
+	mRookAttacks = malloc(BOARD_SIZE * sizeof(BBOARD*));
+	for (int i = 0; i < BOARD_SIZE; i++) {
+		mRookAttacks[i] = malloc(4096 * sizeof(BBOARD));
+	}
 
-		for (int k = 0; k < 100000000; k++) {
-			
-			BBOARD magic = prng_u64(&rng);
-			if (count_bits((mask * magic) & 0xFF00000000000000ULL) < 6) continue;
+	// Allocate memory for bishop attacks
+	mBishopAttacks = malloc(BOARD_SIZE * sizeof(BBOARD*));
+	for (int i = 0; i < BOARD_SIZE; i++) {
+		mBishopAttacks[i] = malloc(512 * sizeof(BBOARD));
+	}
+	
+	//Initialise bishop and rook magic attack tables
+	for (int square = 0; square < 64; square++) {
+		rookPatterns = gen_blocker_patterns(rook_relevant_occupancy(square));
+		bishopPatterns = gen_blocker_patterns(bishop_relevant_occupancy(square));
 
-			memset(used, 0ULL, sizeof(used));
+		
 
-			int i, fail = 0;
-			for (int i = 0, fail = 0; !fail && i < (1 << relevantBits); i++) {
-				int index = transform(blockers[i], magic, relevantBits);
-				if (used[index] == 0ULL) { used[index] = attackMask[i]; }
-				else if (used[index] != attackMask[i]) { fail = 1; }
+		
+
+		// Initialise rook attack tables
+		if (!piece) {
+			for (int pattern = 0; pattern < (1 << rook_relevant_bitCount[square]); pattern++) {
+				int magicIndex = (int)((rookPatterns[pattern] * magicNumsRook[square]) >> (64 - 12));
+				mRookAttacks[square][magicIndex] = rook_attack_mask(square, rookPatterns[pattern]);
+				
+				// Initialise Rook Magic Struct
+				mRookTb1[square] = (SMagic){
+					.mask = rook_relevant_occupancy(square),
+					.magic = magicNumsRook[square]
+				};
 				
 			}
-
-			if (!fail) { 
-				//printf("\n\n\nMAGIC NUMBER FOUND FOR %s: %llu\n\n\n", index_to_coordinate[square], magic); 
-				return magic; }
 		}
 
-		printf("\n\n********FAILED*******\n\n");
-		return 0ULL;
+		// Initialise bishop attack tables
+		if (piece) {
+			for (int pattern = 0; pattern < (1 << bishop_relevant_bitCount[square]); pattern++) {
+				int magicIndex = (int)((bishopPatterns[pattern] * magicNumsBishop[square]) >> (64 - 9));
+				mBishopAttacks[square][magicIndex] = bishop_attack_mask(square, bishopPatterns[square]);
+				//printBitboard(mBishopAttacks[square][magicIndex]);
 
-		// If gen_blocker_patterns allocates memory, make sure to free it
-	}
-	else {
-		printf("Error generating blocker patterns!\n");
+				// Initialise Bishop Magic Struct
+				mBishopTb1[square] = (SMagic){
+					.mask = bishop_relevant_occupancy(square),
+					.magic = magicNumsBishop[square]
+				};
+				
+			}
+		}
+
 	}
 
-	return 0ULL;
+
 }
+
+
+
+// GET BISHOP AND ROOK ATTACKS USING MAGIC NUMBERS
+BBOARD get_bishop_attacks(int square, BBOARD occupancy) {
+	occupancy &= mBishopTb1[square].mask;
+	occupancy *= mBishopTb1[square].magic;
+	occupancy >>= (64 - 9);
+	return mBishopAttacks[square][occupancy];
+}
+
+BBOARD get_rook_attacks(int square, BBOARD occupancy) {
+	occupancy &= mRookTb1[square].mask;
+	occupancy *= mRookTb1[square].magic;
+	occupancy >>= (64 - 12);
+	return mRookAttacks[square][occupancy];
+}
+
+
+
+
+void parseFen(char* fen) {
+	printf("Fen: %lld", *fen);
+}
+
+
+
+
 
 
 int main() {
 	
-	
-	// Declare dynamic arrays
-	BBOARD** mRookAttacks;
-	BBOARD** mBishopAttacks; 
-
-	// Allocate memory
-	const int NUM_SQUARES = 64;
-	const int NUM_PATTERNS_ROOK = 4096;
-	const int NUM_PATTERNS_BISHOP = 512;
-
-	// Allocate memory for rook attacks
-	mRookAttacks = malloc(NUM_SQUARES * sizeof(BBOARD*));
-	for (int i = 0; i < NUM_SQUARES; i++) {
-		mRookAttacks[i] = malloc(NUM_PATTERNS_ROOK * sizeof(BBOARD));
-	}
-
-	// Allocate memory for bishop attacks
-	mBishopAttacks = malloc(NUM_SQUARES * sizeof(BBOARD*));
-	for (int i = 0; i < NUM_SQUARES; i++) {
-		mBishopAttacks[i] = malloc(NUM_PATTERNS_BISHOP * sizeof(BBOARD));
-	}
-	
-
-	int seenMagicIndexes[4096] = { 0 };
-
-
-	BBOARD* rookPatterns;
-	BBOARD* bishopPatterns;
-	for (int square = 0; square < 64; square++) {
-		rookPatterns = gen_blocker_patterns(rook_relevant_occupancy(square));
-		bishopPatterns = gen_blocker_patterns(bishop_relevant_occupancy(square));
-		
-		for (int pattern = 0; pattern < (1 << rook_relevant_bitCount[square]); pattern++) {
-			int magicIndex = (int)((rookPatterns[pattern] * magicNumsRook[square]) >> (64 - 12));
-			printf("\n\n\nMagic Index (Rook): %d            ", magicIndex);
-			//printf("Square: %d          ", square);
-			//printf("Pattern: %d\n\n", pattern);
-			mRookAttacks[square][magicIndex] = rook_attack_mask(square, rookPatterns[pattern]);
-			printf("Iteration %d\n", pattern);
-			printBitboard(mRookAttacks[square][magicIndex]);
-			
-			if (seenMagicIndexes[magicIndex]) { printf("WARNING: MAGIC INDEX %d HAS ALREADY BEEN SEEN", magicIndex); getchar(); }
-			else { seenMagicIndexes[magicIndex] = 1; }
-			//if (magicIndex == 1028) {
-				//getchar();
-			//}	
-		} 
-		for (int k = 0; k < 4096; k++) { seenMagicIndexes[k] = 0; }
-		printf("seenMagicIndexes has been reset!");
-		getchar();
-		
-
-	} 
-	
-	rookPatterns = gen_blocker_patterns(rook_relevant_occupancy(a8));
-	printBitboard(rookPatterns[1]);
-	int index = (int)((rookPatterns[1] * magicNumsRook[a8]) >> (64 - 12));
-	printf("\nMagic Index: %d\n\n", index);
-	printBitboard(mRookAttacks[a8][index]); 
-	//printBitboard(rook_attack_mask(a8, rookPatterns[1])); 
-	
-
-	
-	// Free memory for rook attacks
-	for (int i = 0; i < NUM_SQUARES; i++) {
-		free(mRookAttacks[i]);
-	}
-	free(mRookAttacks);
-
-	// Free memory for bishop attacks
-	for (int i = 0; i < NUM_SQUARES; i++) {
-		free(mBishopAttacks[i]);
-	}
-	free(mBishopAttacks); 
-
-	
-
-
-	/*
-	BBOARD magicNumbersRook[64];
-	BBOARD magicNumbersBishop[64];
-
-
-	for (int square = 0; square < 64; square++) {
-		;
-		magicNumbersRook[square] = generate_magics(square, rook_relevant_bitCount[square], rook);
-		magicNumbersBishop[square] = generate_magics(square, bishop_relevant_bitCount[square], bishop);
-		printf("0x%llX, \n", magicNumbersRook[square]);
-	} */
-
 	init_leaper_attacks(); 
+
+	init_slider_attackTables(bishop);
+	init_slider_attackTables(rook);
+
+	parseFen("Hello");
+
 	
 	
 	return 0;
