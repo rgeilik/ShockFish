@@ -23,7 +23,7 @@
 
 typedef unsigned long long BBOARD; // typedef for bitboard type
 
-#define get_bit(bitboard, square) ((bitboard) & (1ULL << (square))) // Define get bit macro
+#define get_bit(bitboard, square) ((bitboard) & (1ULL << (square))) // Define get bit macro - checks if bit at square position is set
 #define set_bit(bitboard, square) ((bitboard) |= (1ULL << (square))) // Define set bit macro
 #define pop_bit(bitboard, square) get_bit(bitboard, square) ? ((bitboard) ^= (1ULL << (square))) : 0 // Define pop bit macro
 #define BOARD_SIZE 64

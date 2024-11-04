@@ -36,7 +36,7 @@ enum {
 
 }; // Board is reversed because a1 = 1 is top left and h8 = 64
 
-enum { black, white }; // Alias for sides, white = 1 and black = 0
+enum { black, white, both }; // Alias for sides, white = 1 and black = 0
 enum { rook, bishop }; // Alias for slider pieces, rook = 0 and bishop = 1
 enum { P, N, B, R, Q, K, p, n, b, r, q, k }; // Piece encoding  
 enum { wk = 1, wq = 2, bk = 4, bq = 8 }; // Castling rights encoding in the form of 4-bit flag 0000
@@ -160,10 +160,40 @@ BBOARD generate_magic_candidate()
 	return get_random_U64_number() & get_random_U64_number() & get_random_U64_number();
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // Transform blockers and magic number into index
 int transform(BBOARD blockers, BBOARD magic, int piece) {
 	return (int)((blockers * magic) >> (64 - (piece ? 9 : 12)));
 }
+
 
 /*
 // MAGIC NUMBER GENERATOR

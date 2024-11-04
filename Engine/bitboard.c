@@ -15,10 +15,10 @@
 
 // CORE BITBOARDS AND FLAGS
 BBOARD bitboards[12];
-BBOARD occupancy[2];
-int side = -1; // No side to move (illegal)
+BBOARD occupancy[3];
+int sideToMove = -1; // No side to move (illegal)
 int ep = no_sq; // En Passant square (illegal)
-int castling;
+int castlingRights;
 
 
 extern BBOARD pawn_attacks[2][BOARD_SIZE]; // Define pawn attack table
@@ -170,8 +170,8 @@ typedef struct {
 SMagic mBishopTb1[64];
 SMagic mRookTb1[64];
 
-BBOARD** mRookAttacks;
-BBOARD** mBishopAttacks;
+BBOARD mRookAttacks[64][4096];
+BBOARD mBishopAttacks[64][512];
 
 
 
@@ -205,7 +205,92 @@ static inline int count_bits(BBOARD bitboard) {
 } */
 
 
+// FEN PARSER
+void parseFen(char* fen) {
+	int i = 0;
+	int exitLoops = 0;
 
+	// Parse piece positions and update piece bitboards
+	for (int rank = 0; rank < 8; rank++) {
+
+		for (int file = 0; file < 8; file++) {
+
+			int square = (rank * 8) + file;
+
+			if (ascii_to_code[fen[i]] != 0 || fen[i] == 'P') {
+				int piece = ascii_to_code[fen[i]];
+				set_bit(bitboards[piece], square);
+				i++;
+			}
+
+			else if (isdigit(fen[i])) {
+				char* endptr;
+				int skip = (int)strtol(fen + i, &endptr, 10);
+				file += (skip - 1);
+				i++;
+			}
+
+			else if (fen[i] == '/') {
+				i++;
+				file--;
+			}
+
+			else { exitLoops = 1; break; }
+		}
+
+		if (exitLoops) break;
+
+	}
+	//Move to side to move field
+	i++;
+	// Parse side to move
+	int sideToMove = (fen[i] == 'w') ? white : black;
+
+	// Move to castling rights field
+	i += 2;
+
+	// Parse Castling Rights field
+	while (fen[i] != ' ') {
+
+		switch (fen[i])
+		{
+		case 'K': castlingRights |= wk; break;
+		case 'Q': castlingRights |= wq; break;
+		case 'k': castlingRights |= bk; break;
+		case 'q': castlingRights |= bq; break;
+		}
+
+		i++;
+	}
+
+	// Move to en passant field
+	i++;
+
+	if (fen[i] != '-') {
+		int rank = 8 - (fen[i + 1] - '0');
+		int file = fen[i] - 'a';
+		ep = (rank * 8) + file;
+		printf("\nEn Passant square: %d\n", ep);
+		//i += 3;
+	}
+
+	else { ep = no_sq; /*i += 2; */ }
+
+
+	// Populate occupancy bitboards
+	for (int piece = P; piece <= K; piece++) {
+		occupancy[white] |= bitboards[piece];
+	}
+
+	for (int piece = p; piece <= k; piece++) {
+		occupancy[black] |= bitboards[piece];
+	}
+
+	occupancy[both] |= occupancy[white];
+	occupancy[both] |= occupancy[black];
+
+	//TO DO: Generate hash key via Zobrist
+}
 
 
 
@@ -514,7 +599,7 @@ void init_slider_attackTables(int piece) {
 	BBOARD* bishopPatterns;
 
 	
-
+	/*
 	// Allocate memory for rook attacks
 	mRookAttacks = malloc(BOARD_SIZE * sizeof(BBOARD*));
 	for (int i = 0; i < BOARD_SIZE; i++) {
@@ -525,13 +610,13 @@ void init_slider_attackTables(int piece) {
 	mBishopAttacks = malloc(BOARD_SIZE * sizeof(BBOARD*));
 	for (int i = 0; i < BOARD_SIZE; i++) {
 		mBishopAttacks[i] = malloc(512 * sizeof(BBOARD));
-	}
+	} */
 	
 	//Initialise bishop and rook magic attack tables
 	for (int square = 0; square < 64; square++) {
 		rookPatterns = gen_blocker_patterns(rook_relevant_occupancy(square));
 		bishopPatterns = gen_blocker_patterns(bishop_relevant_occupancy(square));
-
+		
 		
 
 		
@@ -541,7 +626,8 @@ void init_slider_attackTables(int piece) {
 			for (int pattern = 0; pattern < (1 << rook_relevant_bitCount[square]); pattern++) {
 				int magicIndex = (int)((rookPatterns[pattern] * magicNumsRook[square]) >> (64 - 12));
 				mRookAttacks[square][magicIndex] = rook_attack_mask(square, rookPatterns[pattern]);
-				
+				//printBitboard(mRookAttacks[square][magicIndex]);
+				//getchar();
 				// Initialise Rook Magic Struct
 				mRookTb1[square] = (SMagic){
 					.mask = rook_relevant_occupancy(square),
@@ -555,10 +641,15 @@ void init_slider_attackTables(int piece) {
 		if (piece) {
 			for (int pattern = 0; pattern < (1 << bishop_relevant_bitCount[square]); pattern++) {
 				int magicIndex = (int)((bishopPatterns[pattern] * magicNumsBishop[square]) >> (64 - 9));
-				mBishopAttacks[square][magicIndex] = bishop_attack_mask(square, bishopPatterns[square]);
+				//printf("Magic Index: %d\n\n", magicIndex);
+				//printf("Blocker pattern: \n");
+				//printBitboard(bishopPatterns[pattern]);
+				//getchar();
+				mBishopAttacks[square][magicIndex] = bishop_attack_mask(square, bishopPatterns[pattern]);
+				//printf("Attack Pattern: \n");
 				//printBitboard(mBishopAttacks[square][magicIndex]);
-
-				// Initialise Bishop Magic Struct
+				//getchar();
+;				// Initialise Bishop Magic Struct
 				mBishopTb1[square] = (SMagic){
 					.mask = bishop_relevant_occupancy(square),
 					.magic = magicNumsBishop[square]
@@ -574,7 +665,7 @@ void init_slider_attackTables(int piece) {
 
 
 
-// GET BISHOP AND ROOK ATTACKS USING MAGIC NUMBERS
+// GET BISHOP, ROOK AND QUEEN ATTACKS USING MAGIC NUMBERS
 BBOARD get_bishop_attacks(int square, BBOARD occupancy) {
 	occupancy &= mBishopTb1[square].mask;
 	occupancy *= mBishopTb1[square].magic;
@@ -589,12 +680,34 @@ BBOARD get_rook_attacks(int square, BBOARD occupancy) {
 	return mRookAttacks[square][occupancy];
 }
 
+BBOARD get_queen_attacks(int square, BBOARD occupancy) {
+	BBOARD rookAttacks = get_rook_attacks(square, occupancy);
+	BBOARD bishopAttacks = get_bishop_attacks(square, occupancy);
 
-
-
-void parseFen(char* fen) {
-	printf("Fen: %lld", *fen);
+	return (rookAttacks |= bishopAttacks);
 }
+
+
+
+
+int is_square_attacked(int square, int side) {
+	// Check for pawn attacks
+	if ( (side == white) && (pawn_attacks[black][square] & bitboards[P])) return 1;
+	if ((side == black) && (pawn_attacks[white][square] & bitboards[p])) return 1;
+
+	if ( (knight_attacks[square] & (bitboards[n] | bitboards[N])) ) return 1;
+
+	if (get_bishop_attacks(square, occupancy[both]) & (bitboards[b] | bitboards[B]) ) return 1;
+
+	if (get_rook_attacks(square, occupancy[both]) & (bitboards[r] | bitboards[R]) ) return 1;
+
+	if (get_queen_attacks(square, occupancy[both]) & (bitboards[q] | bitboards[Q]) ) return 1;
+
+	if (king_attacks[square] & (bitboards[k] | bitboards[K]) ) return 1;
+
+	return 0;
+}
+
 
 
 
@@ -605,11 +718,13 @@ int main() {
 	
 	init_leaper_attacks(); 
 
-	init_slider_attackTables(bishop);
+	
 	init_slider_attackTables(rook);
-
-	parseFen("Hello");
-
+	init_slider_attackTables(bishop);
+	BBOARD test = 0ULL;
+	printBitboard(test);
+	
+	
 	
 	
 	return 0;
