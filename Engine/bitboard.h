@@ -2,10 +2,13 @@
 #include "utility.h"
 #include <stdio.h>
 #include <inttypes.h>
+#include <assert.h>
+
 
 #define USE_32_BIT_MULTIPLICATIONS
 
 typedef unsigned long long BBOARD; // typedef for bitboard type
+typedef unsigned long long U64; // typedef for U64 type for better readability
 
 typedef struct {
 	BBOARD  state;
@@ -57,6 +60,19 @@ const char* index_to_coordinate[] = {
 // ASCII pieces
 const char ascii_pieces[12] = { "PNBRQKpnbrqk" };
 
+const char piece_promotions[12] = {
+	[N] = 'n',
+	[B] = 'b',
+	[R] = 'r',
+	[Q] = 'q',
+	[K] = 'k',
+	[n] = 'n',
+	[b] = 'b',
+	[r] = 'r',
+	[q] = 'q',
+	[k] = 'k'
+};
+
 // Encode ASCII chars back to int values
 int ascii_to_code[128] = {
 	['P'] = P,['N'] = N,['B'] = B,['R'] = R,
@@ -100,12 +116,64 @@ const int bishop_relevant_bitCount[64] = {
 	6, 5, 5, 5, 5, 5, 5, 6
 };
 
+const int promotion_ability[64] = {
+	0, 0, 0, 0, 0, 0, 0, 0,
+	1, 1, 1, 1, 1, 1, 1, 1,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	2, 2, 2, 2, 2, 2, 2, 2,
+	0, 0, 0, 0, 0, 0, 0, 0
+};
+
+
+// Precomputed ranks for en passant
+const int ep_ranks[65] = {
+	8, 16, 16, 16, 16, 16, 16, 16,
+	16, 16, 16, 16, 16, 16, 16, 16,
+	0, 1, 2, 3, 4, 5, 6, 7,
+	16, 16, 16, 16, 16, 16, 16, 16,
+	16, 16, 16, 16, 16, 16, 16, 16,
+	8, 9, 10, 11, 12, 13, 14, 15,
+	16, 16, 16, 16, 16, 16, 16, 16,
+	16, 16, 16, 16, 16, 16, 16, 16,
+	16,
+};
+
+// Precomputed values to help calculate castling rights flag
+const int castling_bits[64] = {
+	 7, 15, 15, 15,  3, 15, 15, 11,
+	15, 15, 15, 15, 15, 15, 15, 15,
+	15, 15, 15, 15, 15, 15, 15, 15,
+	15, 15, 15, 15, 15, 15, 15, 15,
+	15, 15, 15, 15, 15, 15, 15, 15,
+	15, 15, 15, 15, 15, 15, 15, 15,
+	15, 15, 15, 15, 15, 15, 15, 15,
+	13, 15, 15, 15, 12, 15, 15, 14
+};
 
 
 
 
+// GET LSB FROM BITBOARD
+const int index64[64] = {
+	0, 47,  1, 56, 48, 27,  2, 60,
+   57, 49, 41, 37, 28, 16,  3, 61,
+   54, 58, 35, 52, 50, 42, 21, 44,
+   38, 32, 29, 23, 17, 11,  4, 62,
+   46, 55, 26, 59, 40, 36, 15, 53,
+   34, 51, 20, 43, 31, 22, 10, 45,
+   25, 39, 14, 33, 19, 30,  9, 24,
+   13, 18,  8, 12,  7,  6,  5, 63
+};
 
 
+int getLSB(BBOARD bb) {
+	const BBOARD debruijn64 = 0x03f79d71b4cb0a89;
+	assert(bb != 0);
+	return index64[((bb ^ (bb - 1)) * debruijn64) >> 58];
+}
 
 
 

@@ -50,3 +50,6 @@ void printBitboard(BBOARD bitboard) {
 	printf("\n\n Bitboard: %llud\n", bitboard);
 }
 
+
+
+
