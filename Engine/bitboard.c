@@ -190,6 +190,9 @@ int numcastles = 0;
 int numpromotions = 0;
 
 
+
+
+
 /*
 |---------------------------------------------|
 |                                             |
@@ -384,7 +387,69 @@ void parseFen(char* fen) {
 
 
 
+// Function to convert algebraic square notation (e.g. "a2") to board index
+int square_to_index(char* square) {
+	int file = square[0] - 'a';  // Convert a-h to 0-7
+	int rank = 8 - (square[1] - '0');  // Convert 1-8 to 7-0
+	return rank * 8 + file;
+}
 
+// Function to convert UCI move string to encoded move
+int parse_uci_move(const char* uci_move) {
+	char source_sq[3] = { uci_move[0], uci_move[1], '\0' };
+	char target_sq[3] = { uci_move[2], uci_move[3], '\0' };
+
+	int source = square_to_index(source_sq);
+	int target = square_to_index(target_sq);
+
+	// Find piece at source square
+	int piece = -1;
+	for (int p = P; p <= k; p++) {
+		if (get_bit(bitboards[p], source)) {
+			piece = p;
+			break;
+		}
+	}
+
+	// Determine if move is a capture
+	int capture = 0;
+	if (occupancy[!sideToMove] & (1ULL << target)) {
+		capture = 1;
+	}
+
+	// Check for promotion
+	int promotion = 0;
+	if (uci_move[4]) {
+		switch (uci_move[4]) {
+		case 'q': promotion = (sideToMove == white) ? Q : q; break;
+		case 'r': promotion = (sideToMove == white) ? R : r; break;
+		case 'b': promotion = (sideToMove == white) ? B : b; break;
+		case 'n': promotion = (sideToMove == white) ? N : n; break;
+		}
+	}
+
+	// Check for pawn double push
+	int doublepush = 0;
+	if ((piece == P || piece == p) && abs(target - source) == 16) {
+		doublepush = 1;
+	}
+
+	// Check for en passant
+	int enpassant = 0;
+	if ((piece == P || piece == p) && target == ep && !capture) {
+		enpassant = 1;
+		capture = 1;
+	}
+
+	// Check for castling
+	int castling = 0;
+	if ((piece == K || piece == k) && abs(target - source) == 2) {
+		castling = 1;
+	}
+
+	return encode_move(source, target, piece, promotion, capture,
+		doublepush, enpassant, castling);
+}
 
 
 
@@ -805,25 +870,7 @@ int is_square_attacked(int square, int side) {
 
 
 
-// Macros for encoding moves and extracting information 
-#define encode_move(source, target, piece, promotion, capture, doublepush, enpassant, castling) \
-	(source) | \
-	(target << 6) | \
-	(piece << 12) | \
-	(promotion << 16) | \
-	(capture << 20) | \
-	(doublepush << 21) | \
-	(enpassant << 22) | \
-	(castling << 23)    
 
-#define get_move_source(move) (move & 0x03f)
-#define get_move_target(move) ((move & 0xfc0) >> 6)
-#define get_move_piece(move) ((move & 0xf000) >> 12)
-#define get_move_promotion(move) ((move & 0xf0000) >> 16)
-#define get_move_capture(move) (move & 0x100000)
-#define get_move_double(move) (move & 0x200000)
-#define get_move_enpassant(move) (move & 0x400000)
-#define get_move_castling(move) (move & 0x800000)
 
 typedef struct {
 	int moves[256];
@@ -846,6 +893,7 @@ void print_move(int move) {
 		printf("%s%s%c", index_to_coordinate[get_move_source(move)], index_to_coordinate[get_move_target(move)], piece_promotions[get_move_promotion(move)]);
 	}
 }
+
 
 
 // print move list
@@ -970,6 +1018,7 @@ hash_key = hash_key_copy;
 
 
 int make_move(int move) {
+	copy_position();
 	int source = get_move_source(move);
 	int target = get_move_target(move);
 	int piece = get_move_piece(move);
@@ -979,7 +1028,7 @@ int make_move(int move) {
 	int enpassant = get_move_enpassant(move);
 	int castling = get_move_castling(move);
 
-	copy_position();
+	
 
 	pop_bit(bitboards[piece], source);
 	set_bit(bitboards[piece], target);
@@ -1009,7 +1058,7 @@ int make_move(int move) {
 
 	// Handle captures
 	if (capture) {
-		printf("\n\nCAPTURE PLAYED\n\n\n");
+		
 		int startpiece = (sideToMove == white) ? p : P;
 		int endpiece = (sideToMove == white) ? k : K;
 		
@@ -1025,7 +1074,7 @@ int make_move(int move) {
 
 		// Handle en passant
 		if (enpassant) {
-			printf("\n\nEN PASSANT PLAYED\n\n");
+			
 			if (sideToMove == white) {
 				pop_bit(bitboards[p], target + 8);
 				hash_key ^= piece_keys[p][target + 8];
@@ -1073,19 +1122,20 @@ int make_move(int move) {
 	}
 
 	for (int blackPiece = p; blackPiece <= k; blackPiece++) {
-		occupancy[white] |= bitboards[blackPiece];
+		occupancy[black] |= bitboards[blackPiece];
 		occupancy[both] |= bitboards[blackPiece];
-	}
-
-	
-
-	if ((sideToMove == white) ? is_square_attacked(getLSB(bitboards[K]), black) : is_square_attacked(getLSB(bitboards[k]), white)) {
-		take_back();
-		return 0;
 	}
 
 	sideToMove ^= 1;
 	hash_key ^= side_key; // Don't need to differ between white and black because XOR undoes itself
+
+	if (is_square_attacked((sideToMove == white) ? getLSB(bitboards[k]) : getLSB(bitboards[K]), sideToMove)) {
+		take_back();
+
+		return 0;
+	}
+
+	
 	
 
 	return 1;
@@ -1283,7 +1333,7 @@ void generate_legal_moves(moveList* movelist) {
 
 			if (!get_bit(occupancy[both], f8) && !get_bit(occupancy[both], g8)) {
 
-				if (!is_square_attacked(e8, white) && !is_square_attacked(f8, white)) {
+				if (!is_square_attacked(e8, white) && !is_square_attacked(f8, white) && !is_square_attacked(g8, white)) {
 
 					add_move(movelist, encode_move(e8, g8, k, 0, 0, 0, 0, 1));
 					numcastles++;
@@ -1295,7 +1345,7 @@ void generate_legal_moves(moveList* movelist) {
 
 			if (!get_bit(occupancy[both], d8) && !get_bit(occupancy[both], c8) && !get_bit(occupancy[both], b8)) {
 
-				if (!is_square_attacked(e8, white) && !is_square_attacked(d8, white)) {
+				if (!is_square_attacked(e8, white) && !is_square_attacked(d8, white) && !is_square_attacked(c8, white)) {
 
 					add_move(movelist, encode_move(e8, c8, k, 0, 0, 0, 0, 1));
 					numcastles++;
@@ -1316,6 +1366,7 @@ void generate_legal_moves(moveList* movelist) {
 		BBOARD captures = (knight_attacks[source] & occupancy[(sideToMove == white) ? black : white]);
 		BBOARD quietMoves = (knight_attacks[source] & ~occupancy[(sideToMove == white) ? white : black] & ~occupancy[(sideToMove == white) ? black : white]);
 
+		
 		while (quietMoves) {
 			int target = getLSB(quietMoves);
 			add_move(movelist, encode_move(source, target, ((sideToMove == white) ? N : n), 0, 0, 0, 0, 0));
@@ -1446,8 +1497,8 @@ static inline void perft_driver(int depth) {
 	// Use your existing move generator
 	generate_legal_moves(&move_list);
 	
-	printMoveList(&move_list);
-	getchar(); 
+	//printMoveList(&move_list);
+	//getchar(); 
 
 	for (int move_count = 0; move_count < move_list.moveCount; move_count++) {
 		copy_position();
@@ -1456,13 +1507,14 @@ static inline void perft_driver(int depth) {
 		{
 			continue;
 		}
+			/*
+			printf("%d. ", 4 - depth);
+			print_move(move_list.moves[move_count]);
+			printf("\n\n");
+			printf("\nBOARD POSITION AFTER MOVE: \n\n\n");
+			print_board();
+			getchar(); */
 		
-		printf("%d . ", 4 - depth);
-		print_move(move_list.moves[move_count]);
-		printf("\n\n");
-		printf("\nBOARD POSITION AFTER MOVE: \n\n\n");
-		print_board();
-		//getchar(); 
 
 		perft_driver(depth - 1);
 
@@ -1484,8 +1536,8 @@ void perft_test(int depth)
 	// generate moves
 	generate_legal_moves(&move_list);
 	
-	printMoveList(&move_list);
-	getchar(); 
+	
+	//getchar(); 
 
 
 	// init start time
@@ -1503,14 +1555,16 @@ void perft_test(int depth)
 		{
 			continue;
 		}
-		
-		
+		/*
+		if (move_list.moves[move_count] == encode_move(e8, g8, K, 0, 0, 0, 0, 1)) {
 			printf("%d. ", 4 - depth);
 			print_move(move_list.moves[move_count]);
 			printf("\n\n");
 			printf("\nBOARD POSITION AFTER MOVE: \n\n\n");
 			print_board();
-			getchar(); 
+			printMoveList(&move_list);
+			getchar();
+		} */
 		
 		// cummulative nodes
 		long cummulative_nodes = nodes;
@@ -1525,9 +1579,9 @@ void perft_test(int depth)
 		take_back();
 
 		// print move
-		printf("     move: %s%s%c  nodes: %ld\n", index_to_coordinate[get_move_source(move_list.moves[move_count])],
+		printf("%s%s: %ld\n", index_to_coordinate[get_move_source(move_list.moves[move_count])],
 			index_to_coordinate[get_move_target(move_list.moves[move_count])],
-			get_move_promotion(move_list.moves[move_count]) ? piece_promotions[get_move_promotion(move_list.moves[move_count])] : ' ',
+			
 			old_nodes);
 	}
 
@@ -1544,26 +1598,24 @@ void perft_test(int depth)
 
 
 
+
+
+
+
 int main() {
-	
-	moveList move_list = (moveList){
-		.moves = {0},
-		.moveCount = 0
-	}; 
-
 	gen_zobrist_keys();
-	//parseFen("k7/7p/8/8/8/8/6P1/K7 w - - 0 1");
 	
-	//parseFen("k7/8/4n3/8/8/8/1K4N1/8 b - - 1 1");
-	parseFen("k7/8/8/8/5n2/8/1K4N1/8 w - - 2 2");
-
-	init_leaper_attacks(); 
+	
+	parseFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/P1N2Q1p/1PPBBPPP/R3K2R b KQkq - 0 1");
+		
+	init_leaper_attacks();
 	init_slider_attackTables(rook);
 	init_slider_attackTables(bishop);
+		
+	//perft_test(3);
+	print_e8g8_children();
+
 	
-	generate_legal_moves(&move_list);
-	
-	printMoveList(&move_list);
 	
 
 	return 0;

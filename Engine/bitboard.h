@@ -8,6 +8,26 @@
 
 #define USE_32_BIT_MULTIPLICATIONS
 
+// Macros for encoding moves and extracting information 
+#define encode_move(source, target, piece, promotion, capture, doublepush, enpassant, castling) \
+	(source) | \
+	(target << 6) | \
+	(piece << 12) | \
+	(promotion << 16) | \
+	(capture << 20) | \
+	(doublepush << 21) | \
+	(enpassant << 22) | \
+	(castling << 23)    
+
+#define get_move_source(move) (move & 0x03f)
+#define get_move_target(move) ((move & 0xfc0) >> 6)
+#define get_move_piece(move) ((move & 0xf000) >> 12)
+#define get_move_promotion(move) ((move & 0xf0000) >> 16)
+#define get_move_capture(move) (move & 0x100000)
+#define get_move_double(move) (move & 0x200000)
+#define get_move_enpassant(move) (move & 0x400000)
+#define get_move_castling(move) (move & 0x800000)
+
 typedef unsigned long long BBOARD; // typedef for bitboard type
 typedef unsigned long long U64; // typedef for U64 type for better readability
 

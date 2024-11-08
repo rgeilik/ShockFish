@@ -8,4 +8,7 @@
     <ClInclude Include="utility.h" />
     <ClInclude Include="bitboard.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="perft_debug.py" />
+  </ItemGroup>
 </Project>
