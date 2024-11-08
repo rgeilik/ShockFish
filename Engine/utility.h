@@ -1,4 +1,5 @@
 #pragma once
+#include <windows.h>
 /*TO DO:
  - Implement pawn move gen
  - Implement kngiht move gen
@@ -50,6 +51,11 @@ void printBitboard(BBOARD bitboard) {
 	printf("\n\n Bitboard: %llud\n", bitboard);
 }
 
+// get time in milliseconds
+int get_elapsed_time_ms()
+{
+	return GetTickCount();
+}
 
 
 

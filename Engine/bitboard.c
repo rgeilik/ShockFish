@@ -184,7 +184,10 @@ U64 side_key;
 // Position Zobrist hash key
 U64 hash_key = 0ULL;
 
-
+int numcaptures = 0;
+int numep = 0;
+int numcastles = 0;
+int numpromotions = 0;
 
 
 /*
@@ -862,7 +865,7 @@ void printMoveList(moveList* move_list)
 	{
 		// init move
 		int move = move_list->moves[move_count];
-
+		
 		// print move
 		printf("      %s%s%c   %c         %d         %d         %d         %d\n", index_to_coordinate[get_move_source(move)],
 			index_to_coordinate[get_move_target(move)],
@@ -871,7 +874,7 @@ void printMoveList(moveList* move_list)
 			get_move_capture(move) ? 1 : 0,
 			get_move_double(move) ? 1 : 0,
 			get_move_enpassant(move) ? 1 : 0,
-			get_move_castling(move) ? 1 : 0);
+			get_move_castling(move) ? 1 : 0); 
 
 	}
 
@@ -881,7 +884,65 @@ void printMoveList(moveList* move_list)
 }
 
 
+// print board
+void print_board()
+{
+	// print offset
+	printf("\n");
 
+	// loop over board ranks
+	for (int rank = 0; rank < 8; rank++)
+	{
+		// loop ober board files
+		for (int file = 0; file < 8; file++)
+		{
+			// init square
+			int square = rank * 8 + file;
+
+			// print ranks
+			if (!file)
+				printf("  %d ", 8 - rank);
+
+			// define piece variable
+			int piece = -1;
+
+			// loop over all piece bitboards
+			for (int bb_piece = P; bb_piece <= k; bb_piece++)
+			{
+				// if there is a piece on current square
+				if (get_bit(bitboards[bb_piece], square))
+					// get piece code
+					piece = bb_piece;
+			}
+
+			// print different piece set depending on OS
+			printf(" %c", (piece == -1) ? '.' : ascii_pieces[piece]);
+
+		}
+
+		// print new line every rank
+		printf("\n");
+	}
+
+	// print board files
+	printf("\n     a b c d e f g h\n\n");
+
+	// print side to move
+	printf("     Side:     %s\n", !sideToMove ? "white" : "black");
+
+	// print enpassant square
+	printf("     Enpassant:   %s\n", (ep != no_sq) ? index_to_coordinate[ep] : "no");
+
+	// print castling rights
+	printf("     Castling:  %c%c%c%c\n\n", (castlingRights & wk) ? 'K' : '-',
+		(castlingRights & wq) ? 'Q' : '-',
+		(castlingRights & bk) ? 'k' : '-',
+		(castlingRights & bq) ? 'q' : '-');
+
+	
+	// print hash key
+	printf("     Hash key:  %llx\n\n", hash_key);
+}
 
 
 
@@ -948,8 +1009,9 @@ int make_move(int move) {
 
 	// Handle captures
 	if (capture) {
-		int startpiece = (sideToMove == white) ? P : p;
-		int endpiece = (sideToMove == white) ? K : k;
+		printf("\n\nCAPTURE PLAYED\n\n\n");
+		int startpiece = (sideToMove == white) ? p : P;
+		int endpiece = (sideToMove == white) ? k : K;
 		
 		for (; startpiece <= endpiece; startpiece++) {
 			// If piece found on target square, pop and remove from hash key
@@ -960,24 +1022,26 @@ int make_move(int move) {
 				break;
 			}
 		}
+
+		// Handle en passant
+		if (enpassant) {
+			printf("\n\nEN PASSANT PLAYED\n\n");
+			if (sideToMove == white) {
+				pop_bit(bitboards[p], target + 8);
+				hash_key ^= piece_keys[p][target + 8];
+				hash_key ^= ep_keys[ep_ranks[target]]; // Remove en passant from hash
+			}
+
+			else {
+				pop_bit(bitboards[P], target - 8);
+				hash_key ^= piece_keys[P][target - 8];
+				hash_key ^= ep_keys[ep_ranks[target]]; // Remove en passant from hash
+			}
+
+		}
 	}
 
-	// Handle en passant
-	if (enpassant) {
 
-		if (sideToMove == white) {
-			pop_bit(bitboards[p], target + 8);
-			hash_key ^= piece_keys[p][target + 8];
-			hash_key ^= ep_keys[ep_ranks[target]]; // Remove en passant from hash
-		}
-
-		else {
-			pop_bit(bitboards[P], target - 8);
-			hash_key ^= piece_keys[P][target - 8];
-			hash_key ^= ep_keys[ep_ranks[target]]; // Remove en passant from hash
-		}
-		
-	}
 
 	// TO DO: Possibly look into adding an additional ep_key for no_sq, which is equal to 0 (and add to ep_ranks)
 	if (ep != no_sq) hash_key ^= ep_keys[ep_ranks[ep]];
@@ -1070,6 +1134,8 @@ void generate_legal_moves(moveList* movelist) {
 			// Check if pawn attacks and en passant square intersect
 			if (pawn_attacks[white][source] & en_passant) {
 				add_move(movelist, encode_move(source, ep, P, 0, 1, 0, 1, 0));
+				numep++;
+				numcaptures++;
 				pop_bit(en_passant, ep);
 			}
 
@@ -1083,13 +1149,16 @@ void generate_legal_moves(moveList* movelist) {
 
 					for (int promote = N; promote < K; promote++) {
 						add_move(movelist, encode_move(source, push, P, promote, 1, 0, 0, 0));
+						numpromotions++;
 					}
+					numcaptures++;
 					pop_bit(captures, target);
 				}
 
 				// Gen normal captures
 				else {
 					add_move(movelist, encode_move(source, target, P, 0, 1, 0, 0, 0)); 
+					numcaptures++;
 					pop_bit(captures, target);
 				}
 			}
@@ -1107,6 +1176,7 @@ void generate_legal_moves(moveList* movelist) {
 				if (!is_square_attacked(e1, black) && !is_square_attacked(f1, black)) {
 
 					add_move(movelist, encode_move(e1, g1, K, 0, 0, 0, 0, 1));
+					numcastles++;
 				}
 			}
 		}
@@ -1119,6 +1189,7 @@ void generate_legal_moves(moveList* movelist) {
 				if (!is_square_attacked(e1, black) && !is_square_attacked(d1, black)) {
 
 					add_move(movelist, encode_move(e1, c1, K, 0, 0, 0, 0, 1));
+					numcastles++;
 				}
 			}
 		}
@@ -1152,6 +1223,7 @@ void generate_legal_moves(moveList* movelist) {
 
 					for (int promote = n; promote < k; promote++) {
 						add_move(movelist, encode_move(source, push, p, promote, 0, 0, 0, 0));
+						numpromotions++;
 					}
 				}
 
@@ -1169,6 +1241,8 @@ void generate_legal_moves(moveList* movelist) {
 			// Check if pawn attacks and en passant square intersect
 			if (pawn_attacks[black][source] & en_passant) {
 				add_move(movelist, encode_move(source, ep, p, 0, 1, 0, 1, 0));
+				numep++;
+				numcaptures++;
 				pop_bit(en_passant, ep);
 			}
 
@@ -1182,13 +1256,15 @@ void generate_legal_moves(moveList* movelist) {
 
 					for (int promote = n; promote < k; promote++) {
 						add_move(movelist, encode_move(source, target, p, promote, 1, 0, 0, 0));
+						numpromotions++;
+						numcaptures++;
 					}
 					pop_bit(attacks, target);
 				}
 				
 				else {
 					add_move(movelist, encode_move(source, target, p, 0, 1, 0, 0, 0));
-
+					numcaptures++;
 					pop_bit(attacks, target);
 				}
 			}
@@ -1210,6 +1286,7 @@ void generate_legal_moves(moveList* movelist) {
 				if (!is_square_attacked(e8, white) && !is_square_attacked(f8, white)) {
 
 					add_move(movelist, encode_move(e8, g8, k, 0, 0, 0, 0, 1));
+					numcastles++;
 				}
 			}
 		}
@@ -1221,6 +1298,7 @@ void generate_legal_moves(moveList* movelist) {
 				if (!is_square_attacked(e8, white) && !is_square_attacked(d8, white)) {
 
 					add_move(movelist, encode_move(e8, c8, k, 0, 0, 0, 0, 1));
+					numcastles++;
 				}
 			}
 		}
@@ -1247,6 +1325,7 @@ void generate_legal_moves(moveList* movelist) {
 		while (captures) {
 			int target = getLSB(captures);
 			add_move(movelist, encode_move(source, target, ((sideToMove == white) ? N : n), 0, 1, 0, 0, 0));
+			numcaptures++;
 			pop_bit(captures, target);
 		}
 
@@ -1271,6 +1350,7 @@ void generate_legal_moves(moveList* movelist) {
 		while (captures) {
 			int target = getLSB(captures);
 			add_move(movelist, encode_move(source, target, ((sideToMove == white) ? B : b), 0, 1, 0, 0, 0));
+			numcaptures++;
 			pop_bit(captures, target);
 		}
 
@@ -1294,6 +1374,7 @@ void generate_legal_moves(moveList* movelist) {
 		while (captures) {
 			int target = getLSB(captures);
 			add_move(movelist, encode_move(source, target, ((sideToMove == white) ? R : r), 0, 1, 0, 0, 0));
+			numcaptures++;
 			pop_bit(captures, target);
 		}
 
@@ -1317,6 +1398,7 @@ void generate_legal_moves(moveList* movelist) {
 		while (captures) {
 			int target = getLSB(captures);
 			add_move(movelist, encode_move(source, target, ((sideToMove == white) ? Q : q), 0, 1, 0, 0, 0));
+			numcaptures++;
 			pop_bit(captures, target);
 		}
 
@@ -1340,6 +1422,7 @@ void generate_legal_moves(moveList* movelist) {
 		while (captures) {
 			int target = getLSB(captures);
 			add_move(movelist, encode_move(source, target, ((sideToMove == white) ? K : k), 0, 1, 0, 0, 0));
+			numcaptures++;
 			pop_bit(captures, target);
 		}
 
@@ -1349,60 +1432,145 @@ void generate_legal_moves(moveList* movelist) {
 }
 
 
-U64 Perft(int depth)
-{
-	moveList move_list = (moveList){
-		.moves = {0},
-		.moveCount = 0
-	};
-	int i;
-	U64 nodes = 0;
+U64 nodes;
 
-	if (depth == 0)
-		return 1ULL;
-
-	generate_legal_moves(&move_list);
-	for (i = 0; i < move_list.moveCount; i++) {
-		copy_position();
-		
-		if (make_move(move_list.moves[i])) {
-			nodes += Perft(depth - 1);
-			take_back();
-		}
-		else continue;
+static inline void perft_driver(int depth) {
+	if (depth == 0) {
+		nodes++;
+		return;
 	}
-	return nodes;
+
+	moveList move_list = { 0 };
+	move_list.moveCount = 0;
+
+	// Use your existing move generator
+	generate_legal_moves(&move_list);
+	
+	printMoveList(&move_list);
+	getchar(); 
+
+	for (int move_count = 0; move_count < move_list.moveCount; move_count++) {
+		copy_position();
+		// make_move already handles copying the position internally
+		if (!make_move(move_list.moves[move_count]))
+		{
+			continue;
+		}
+		
+		printf("%d . ", 4 - depth);
+		print_move(move_list.moves[move_count]);
+		printf("\n\n");
+		printf("\nBOARD POSITION AFTER MOVE: \n\n\n");
+		print_board();
+		//getchar(); 
+
+		perft_driver(depth - 1);
+
+		take_back();
+	}
+}
+
+// perft test
+void perft_test(int depth)
+{
+	printf("\n     Performance test\n\n");
+	
+	// create move list instance
+	moveList move_list = { 0 };
+	move_list.moveCount = 0;
+	
+
+
+	// generate moves
+	generate_legal_moves(&move_list);
+	
+	printMoveList(&move_list);
+	getchar(); 
+
+
+	// init start time
+	long start = get_elapsed_time_ms();
+
+	// loop over generated moves
+	for (int move_count = 0; move_count < move_list.moveCount; move_count++)
+	{
+		// preserve board state
+		copy_position();
+
+		// make move
+		if (!make_move(move_list.moves[move_count]))
+			// skip to the next move
+		{
+			continue;
+		}
+		
+		
+			printf("%d. ", 4 - depth);
+			print_move(move_list.moves[move_count]);
+			printf("\n\n");
+			printf("\nBOARD POSITION AFTER MOVE: \n\n\n");
+			print_board();
+			getchar(); 
+		
+		// cummulative nodes
+		long cummulative_nodes = nodes;
+
+		// call perft driver recursively
+		perft_driver(depth - 1);
+
+		// old nodes
+		long old_nodes = nodes - cummulative_nodes;
+
+		// take back
+		take_back();
+
+		// print move
+		printf("     move: %s%s%c  nodes: %ld\n", index_to_coordinate[get_move_source(move_list.moves[move_count])],
+			index_to_coordinate[get_move_target(move_list.moves[move_count])],
+			get_move_promotion(move_list.moves[move_count]) ? piece_promotions[get_move_promotion(move_list.moves[move_count])] : ' ',
+			old_nodes);
+	}
+
+	// print results
+	printf("\n    Depth: %d\n", depth);
+	printf("    Nodes: %lld\n", nodes);
+	printf("       Number of Captures: %d\n", numcaptures);
+	printf("       Number of Castles: %d\n", numcastles);
+	printf("       Number of En Passant: %d\n", numep);
+	printf("       Number of Promotions: %d\n", numpromotions);
+	printf("     Time: %ld\n\n", get_elapsed_time_ms() - start);
+	
 }
 
 
+
 int main() {
-	clock_t start_time = clock();
+	
 	moveList move_list = (moveList){
 		.moves = {0},
 		.moveCount = 0
-	};
+	}; 
 
 	gen_zobrist_keys();
-	parseFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+	//parseFen("k7/7p/8/8/8/8/6P1/K7 w - - 0 1");
 	
-	
+	//parseFen("k7/8/4n3/8/8/8/1K4N1/8 b - - 1 1");
+	parseFen("k7/8/8/8/5n2/8/1K4N1/8 w - - 2 2");
+
 	init_leaper_attacks(); 
 	init_slider_attackTables(rook);
 	init_slider_attackTables(bishop);
 	
-	printf("Nodes: %llu\n\n", Perft(6));
+	generate_legal_moves(&move_list);
 	
-	// Calculate elapsed time
-	clock_t end_time = clock();
-	double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
-
-	// Print the elapsed time
-	printf("Elapsed time: %f seconds\n", elapsed_time);
-	
-	
-	
-	
+	printMoveList(&move_list);
 	
 
 	return 0;
 }
+
+
+
+
+
+

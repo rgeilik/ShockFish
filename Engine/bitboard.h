@@ -5,6 +5,7 @@
 #include <assert.h>
 
 
+
 #define USE_32_BIT_MULTIPLICATIONS
 
 typedef unsigned long long BBOARD; // typedef for bitboard type
@@ -171,9 +172,18 @@ const int index64[64] = {
 
 int getLSB(BBOARD bb) {
 	const BBOARD debruijn64 = 0x03f79d71b4cb0a89;
-	assert(bb != 0);
+	//assert(bb != 0);
 	return index64[((bb ^ (bb - 1)) * debruijn64) >> 58];
 }
+
+
+
+
+
+
+
+
+
 
 
 
