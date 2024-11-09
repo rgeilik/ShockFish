@@ -1041,7 +1041,7 @@ int make_move(int move) {
 		switch (target) {
 			case(g1): pop_bit(bitboards[R], h1); set_bit(bitboards[R], f1); hash_key ^= piece_keys[R][h1]; hash_key ^= piece_keys[R][f1]; break;
 			case(c1): pop_bit(bitboards[R], a1); set_bit(bitboards[R], d1); hash_key ^= piece_keys[R][a1]; hash_key ^= piece_keys[R][d1]; break;
-			case(h8): pop_bit(bitboards[r], h8); set_bit(bitboards[r], f8); hash_key ^= piece_keys[r][h8]; hash_key ^= piece_keys[r][f8]; break;
+			case(g8): pop_bit(bitboards[r], h8); set_bit(bitboards[r], f8); hash_key ^= piece_keys[r][h8]; hash_key ^= piece_keys[r][f8]; break;
 			case(c8): pop_bit(bitboards[r], a8); set_bit(bitboards[r], d8); hash_key ^= piece_keys[r][a8]; hash_key ^= piece_keys[r][d8]; break;
 		}
 	}
@@ -1135,7 +1135,11 @@ int make_move(int move) {
 		return 0;
 	}
 
-	
+	// Increment counters for perft 
+	if (capture) numcaptures++;
+	if (promotion) numpromotions++;
+	if (enpassant) numep++;
+	if (castling) numcastles++;
 	
 
 	return 1;
@@ -1162,6 +1166,7 @@ void generate_legal_moves(moveList* movelist) {
 			
 			// Check if square directly in front of pawn is available
 			if (!get_bit(occupancy[both], push)) {
+	
 				// Check if pawn is on 7th rank to give promotion option
 				if (promotion_ability[source] == 1) {
 
@@ -1184,8 +1189,7 @@ void generate_legal_moves(moveList* movelist) {
 			// Check if pawn attacks and en passant square intersect
 			if (pawn_attacks[white][source] & en_passant) {
 				add_move(movelist, encode_move(source, ep, P, 0, 1, 0, 1, 0));
-				numep++;
-				numcaptures++;
+				
 				pop_bit(en_passant, ep);
 			}
 
@@ -1198,17 +1202,17 @@ void generate_legal_moves(moveList* movelist) {
 				if (promotion_ability[source] == 1) {
 
 					for (int promote = N; promote < K; promote++) {
-						add_move(movelist, encode_move(source, push, P, promote, 1, 0, 0, 0));
-						numpromotions++;
+						add_move(movelist, encode_move(source, target, P, promote, 1, 0, 0, 0));
+						
 					}
-					numcaptures++;
+					
 					pop_bit(captures, target);
 				}
 
 				// Gen normal captures
 				else {
 					add_move(movelist, encode_move(source, target, P, 0, 1, 0, 0, 0)); 
-					numcaptures++;
+					
 					pop_bit(captures, target);
 				}
 			}
@@ -1226,7 +1230,7 @@ void generate_legal_moves(moveList* movelist) {
 				if (!is_square_attacked(e1, black) && !is_square_attacked(f1, black)) {
 
 					add_move(movelist, encode_move(e1, g1, K, 0, 0, 0, 0, 1));
-					numcastles++;
+					
 				}
 			}
 		}
@@ -1239,7 +1243,7 @@ void generate_legal_moves(moveList* movelist) {
 				if (!is_square_attacked(e1, black) && !is_square_attacked(d1, black)) {
 
 					add_move(movelist, encode_move(e1, c1, K, 0, 0, 0, 0, 1));
-					numcastles++;
+					
 				}
 			}
 		}
@@ -1273,7 +1277,7 @@ void generate_legal_moves(moveList* movelist) {
 
 					for (int promote = n; promote < k; promote++) {
 						add_move(movelist, encode_move(source, push, p, promote, 0, 0, 0, 0));
-						numpromotions++;
+						
 					}
 				}
 
@@ -1291,8 +1295,7 @@ void generate_legal_moves(moveList* movelist) {
 			// Check if pawn attacks and en passant square intersect
 			if (pawn_attacks[black][source] & en_passant) {
 				add_move(movelist, encode_move(source, ep, p, 0, 1, 0, 1, 0));
-				numep++;
-				numcaptures++;
+				
 				pop_bit(en_passant, ep);
 			}
 
@@ -1306,15 +1309,15 @@ void generate_legal_moves(moveList* movelist) {
 
 					for (int promote = n; promote < k; promote++) {
 						add_move(movelist, encode_move(source, target, p, promote, 1, 0, 0, 0));
-						numpromotions++;
-						numcaptures++;
+						
 					}
+					
 					pop_bit(attacks, target);
 				}
 				
 				else {
 					add_move(movelist, encode_move(source, target, p, 0, 1, 0, 0, 0));
-					numcaptures++;
+					
 					pop_bit(attacks, target);
 				}
 			}
@@ -1336,7 +1339,7 @@ void generate_legal_moves(moveList* movelist) {
 				if (!is_square_attacked(e8, white) && !is_square_attacked(f8, white) && !is_square_attacked(g8, white)) {
 
 					add_move(movelist, encode_move(e8, g8, k, 0, 0, 0, 0, 1));
-					numcastles++;
+					
 				}
 			}
 		}
@@ -1348,7 +1351,7 @@ void generate_legal_moves(moveList* movelist) {
 				if (!is_square_attacked(e8, white) && !is_square_attacked(d8, white) && !is_square_attacked(c8, white)) {
 
 					add_move(movelist, encode_move(e8, c8, k, 0, 0, 0, 0, 1));
-					numcastles++;
+					
 				}
 			}
 		}
@@ -1376,7 +1379,7 @@ void generate_legal_moves(moveList* movelist) {
 		while (captures) {
 			int target = getLSB(captures);
 			add_move(movelist, encode_move(source, target, ((sideToMove == white) ? N : n), 0, 1, 0, 0, 0));
-			numcaptures++;
+			
 			pop_bit(captures, target);
 		}
 
@@ -1401,7 +1404,7 @@ void generate_legal_moves(moveList* movelist) {
 		while (captures) {
 			int target = getLSB(captures);
 			add_move(movelist, encode_move(source, target, ((sideToMove == white) ? B : b), 0, 1, 0, 0, 0));
-			numcaptures++;
+			
 			pop_bit(captures, target);
 		}
 
@@ -1425,7 +1428,7 @@ void generate_legal_moves(moveList* movelist) {
 		while (captures) {
 			int target = getLSB(captures);
 			add_move(movelist, encode_move(source, target, ((sideToMove == white) ? R : r), 0, 1, 0, 0, 0));
-			numcaptures++;
+	
 			pop_bit(captures, target);
 		}
 
@@ -1449,7 +1452,7 @@ void generate_legal_moves(moveList* movelist) {
 		while (captures) {
 			int target = getLSB(captures);
 			add_move(movelist, encode_move(source, target, ((sideToMove == white) ? Q : q), 0, 1, 0, 0, 0));
-			numcaptures++;
+			
 			pop_bit(captures, target);
 		}
 
@@ -1473,7 +1476,7 @@ void generate_legal_moves(moveList* movelist) {
 		while (captures) {
 			int target = getLSB(captures);
 			add_move(movelist, encode_move(source, target, ((sideToMove == white) ? K : k), 0, 1, 0, 0, 0));
-			numcaptures++;
+			
 			pop_bit(captures, target);
 		}
 
@@ -1485,7 +1488,7 @@ void generate_legal_moves(moveList* movelist) {
 
 U64 nodes;
 
-static inline void perft_driver(int depth) {
+void perft_driver(int depth) {
 	if (depth == 0) {
 		nodes++;
 		return;
@@ -1579,9 +1582,9 @@ void perft_test(int depth)
 		take_back();
 
 		// print move
-		printf("%s%s: %ld\n", index_to_coordinate[get_move_source(move_list.moves[move_count])],
+		printf("%s%s%c: %ld\n", index_to_coordinate[get_move_source(move_list.moves[move_count])],
 			index_to_coordinate[get_move_target(move_list.moves[move_count])],
-			
+			get_move_promotion(move_list.moves[move_count]) ? piece_promotions[get_move_promotion(move_list.moves[move_count])] : ' ',
 			old_nodes);
 	}
 
@@ -1603,19 +1606,25 @@ void perft_test(int depth)
 
 
 int main() {
+	moveList move_list = (moveList){
+		.moves = {0},
+		.moveCount = 0
+	};
 	gen_zobrist_keys();
 	
 	
-	parseFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/P1N2Q1p/1PPBBPPP/R3K2R b KQkq - 0 1");
+	parseFen("4k3/1P6/8/8/8/8/K7/8 w - - 0 1");
 		
 	init_leaper_attacks();
 	init_slider_attackTables(rook);
 	init_slider_attackTables(bishop);
 		
-	//perft_test(3);
-	print_e8g8_children();
+	perft_test(5);
+	/*
+	print_board();
+	generate_legal_moves(&move_list);
+	printMoveList(&move_list); */
 
-	
 	
 
 	return 0;
