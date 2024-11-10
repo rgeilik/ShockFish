@@ -1896,7 +1896,45 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 
 
 
+int findBestMove(int depth) {
+	moveList moves = {
+		.moves = {0},
+		.moveCount = 0
+	};
 
+	generate_legal_moves(&moves);
+
+	int bestMove = 0;
+	int alpha = -50000;  // Use same bounds as your evaluation
+	int beta = 50000;
+	int bestScore = -50000;
+
+	// Search each move
+	for (int i = 0; i < moves.moveCount; i++) {
+		copy_position();
+
+		if (!make_move(moves.moves[i], all_moves)) {
+			continue;
+		}
+
+		// Search with current alpha-beta window
+		int score = -alphaBeta(-beta, -alpha, depth - 1);
+
+		take_back();
+
+		// Update best move if we found a better score
+		if (score > bestScore) {
+			bestScore = score;
+			bestMove = moves.moves[i];
+
+			if (score > alpha) {
+				alpha = score;
+			}
+		}
+	}
+
+	return bestMove;
+}
 
 
 
@@ -1954,13 +1992,13 @@ int parse_uci_move(const char* uci_move) {
 
 			// Handle illegal move
 			else {
-				printf("Illegal move, puts king in check");
+				//printf("Illegal move, puts king in check");
 				return 0;
 			}
 		}
 	}
 	// Move not found in legal moves, return 0
-	printf("Move not found in move list");
+	//printf("Move not found in move list");
 	return 0;
 }
 
@@ -2013,10 +2051,94 @@ int parse_uci_position(char* cmd) {
 	return 1;
 }
 
-int parse_uci_go(char* cmd) {
+void parse_uci_go(char* cmd) {
+	char* current_cmd = cmd + 3; // Move from 'go' to next part
+
+	if (!strncmp(current_cmd, "depth", 5)) {
+		current_cmd += 6; // Shift from 'depth' to depth number
+		int depth = atoi(current_cmd);
+		int bestMove = findBestMove(depth);
+		printf("bestmove ");
+		print_move(bestMove);
+		printf("\n");
+	}
+
+	else {
+		int depth = 6;
+		int bestMove = findBestMove(depth);
+		printf("bestmove ");
+		print_move(bestMove);
+		printf("\n");
+	}
+
 
 }
 
+void uci_loop() {
+	setvbuf(stdin, NULL, _IONBF, 0);
+	setvbuf(stdout, NULL, _IONBF, 0);
+
+	char input[2000];
+
+	printf("id name ShockFish\n");
+	printf("id author AtomicChessSensei\n");
+	printf("uciok\n");
+
+	while (1) {
+		memset(input, 0, sizeof(input));
+
+		fflush(stdout);
+
+		if (!fgets(input, 2000, stdin)) {
+			continue;
+		}
+
+		if (input[0] == '\n') {
+			continue;
+		}
+
+		else if (!strncmp(input, "isready\n", 8)) {
+			printf("readyok\n");
+			continue;
+		}
+
+		else if (!strncmp(input, "position", 8)) {
+			parse_uci_position(input);
+			print_board();
+		}
+
+		else if (!strncmp(input, "ucinewgame\n", 11)) {
+			parseFen(starting_pos);
+
+		}
+
+		else if (!strncmp(input, "go", 2)) {
+			parse_uci_go(input);
+			
+		}
+
+		else if (!strncmp(input, "board", 5)) {
+			print_board();
+		}
+
+		else if (!strncmp(input, "uci\n", 4)) {
+			printf("id name ShockFish\n");
+			printf("id author AtomicChessSensei\n");
+			printf("uciok\n");
+			
+		}
+
+		else if (!strncmp(input, "quit\n", 5)) {
+			break;
+		}
+
+		else {
+			printf("Unknown command: %s", input);
+		}
+	}
+
+
+}
 
 
 
@@ -2031,13 +2153,8 @@ void init_all() {
 int main() {
 
 	init_all();
-	parseFen(starting_pos);
 	
-	
-	printf("Evaluation: %d\n", alphaBeta(-10000000, 10000000, 6));
-	printf("Nodes: %llu", nodes);
-
-	
+	uci_loop();
 	
 	return 0;
 }
