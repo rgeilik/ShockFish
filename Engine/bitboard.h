@@ -28,6 +28,8 @@
 #define get_move_enpassant(move) (move & 0x400000)
 #define get_move_castling(move) (move & 0x800000)
 
+#define mirror(square) ((square) ^ 56)
+
 typedef unsigned long long BBOARD; // typedef for bitboard type
 typedef unsigned long long U64; // typedef for U64 type for better readability
 
@@ -64,6 +66,7 @@ enum { black, white, both }; // Alias for sides, white = 1 and black = 0
 enum { rook, bishop }; // Alias for slider pieces, rook = 0 and bishop = 1
 enum { P, N, B, R, Q, K, p, n, b, r, q, k }; // Piece encoding  
 enum { wk = 1, wq = 2, bk = 4, bq = 8 }; // Castling rights encoding in the form of 4-bit flag 0000
+enum {all_moves, only_captures}; // make_move flags
 
 
 
@@ -92,6 +95,22 @@ const char piece_promotions[12] = {
 	[r] = 'r',
 	[q] = 'q',
 	[k] = 'k'
+};
+
+const int piece_promotions_mapback_white[128] = {
+	['q'] = Q,
+	['r'] = R,
+	['b'] = B,
+	['n'] = N,
+	
+};
+
+const int piece_promotions_mapback_black[128] = {
+	['q'] = q,
+	['r'] = r,
+	['b'] = b,
+	['n'] = n,
+	
 };
 
 // Encode ASCII chars back to int values

@@ -28,6 +28,7 @@ typedef unsigned long long BBOARD; // typedef for bitboard type
 #define set_bit(bitboard, square) ((bitboard) |= (1ULL << (square))) // Define set bit macro
 #define pop_bit(bitboard, square) get_bit(bitboard, square) ? ((bitboard) ^= (1ULL << (square))) : 0 // Define pop bit macro
 #define BOARD_SIZE 64
+#define starting_pos "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 
 
