@@ -53,9 +53,9 @@ void printBitboard(BBOARD bitboard) {
 }
 
 // get time in milliseconds
-int get_elapsed_time_ms()
+BBOARD get_elapsed_time_ms()
 {
-	return GetTickCount();
+	return GetTickCount64();
 }
 
 

@@ -30,6 +30,8 @@
 
 #define mirror(square) ((square) ^ 56)
 
+#define inf 50000 // Defnition for search and AlphaBeta pruning
+
 typedef unsigned long long BBOARD; // typedef for bitboard type
 typedef unsigned long long U64; // typedef for U64 type for better readability
 

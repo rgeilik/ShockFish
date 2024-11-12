@@ -22,9 +22,9 @@ int ep = no_sq; // En Passant square (illegal)
 int castlingRights;
 
 // Attack tables for leaper pieces
-extern BBOARD pawn_attacks[2][BOARD_SIZE]; // Define pawn attack table
-extern BBOARD knight_attacks[BOARD_SIZE]; // Define knight attack tables
-extern BBOARD king_attacks[BOARD_SIZE]; // Define king attack tables
+BBOARD pawn_attacks[2][BOARD_SIZE]; // Define pawn attack table
+BBOARD knight_attacks[BOARD_SIZE]; // Define knight attack tables
+BBOARD king_attacks[BOARD_SIZE]; // Define king attack tables
 
 
 BBOARD magicNumsRook[64] = {
@@ -802,10 +802,178 @@ int is_square_attacked(int square, int side) {
 	return 0;
 }
 
+// Get all pieces xraying a square
+BBOARD findXrayPieces();
+
+BBOARD xrayRookAttacks(int color, BBOARD occ, int rookSq) {
+	
+	BBOARD attacks = get_rook_attacks(rookSq, occ);
+	
+	BBOARD blockers = ((attacks & occ) & (bitboards[(color) ? R : r]) | bitboards[(color) ? Q : q]);
+	
+	return (attacks ^ get_rook_attacks(rookSq, occ ^ blockers));
+}
 
 
+BBOARD xrayBishopAttacks(int color, BBOARD occ, int bishopSq) {
+	BBOARD attacks = get_bishop_attacks(bishopSq, occ);
+
+	// Get piece blockers
+	BBOARD pieceBlockers = ((attacks & occ) & (bitboards[(color) ? B : b] | bitboards[(color) ? Q : q]));
+
+	// Get pawn blockers that are in front based on color
+	BBOARD pawnBlockers = ((attacks & occ) & bitboards[(color ? P : p)]);
+	if (color) { // white bishop
+		pawnBlockers &= ~(0xFFFFFFFFFFFFFFFFULL << (bishopSq + 1));
+	}
+	else { // black bishop
+		pawnBlockers &= ~(0xFFFFFFFFFFFFFFFFULL >> (64 - bishopSq));
+	}
+
+	// Get attacks through pieces
+	BBOARD throughPieces = (attacks ^ get_bishop_attacks(bishopSq, occ ^ pieceBlockers));
+
+	// Get attacks through pawns
+	BBOARD throughPawns = 0ULL;
+	while (pawnBlockers) {
+		int pawnSq = getLSB(pawnBlockers);
+		// Get bishop attacks as if the pawn wasn't there
+		BBOARD withoutPawn = get_bishop_attacks(bishopSq, occ ^ (1ULL << pawnSq));
+		// Only include the pawn's attack square if it's on the same diagonal
+		throughPawns |= (pawn_attacks[color][pawnSq] & withoutPawn);
+		pop_bit(pawnBlockers, pawnSq);
+	}
+
+	return throughPieces | throughPawns;
+}
 
 
+BBOARD xrayQueenAttacks(int color, BBOARD occ, int queenSq) {
+	BBOARD attacks = get_queen_attacks(queenSq, occ);
+	BBOARD bishopattacksonfly = bishop_attack_mask(queenSq, 0ULL);
+
+	// Get piece blockers
+	BBOARD pieceBlockers = ((attacks & occ) &
+		((bitboards[(color) ? Q : q] |
+			bitboards[(color) ? R : r] |
+			bitboards[(color) ? B : b])));
+
+	printf("Piece Blockers: \n\n");
+	printBitboard(pieceBlockers);
+	getchar();
+
+	// Get pawn blockers that are in front
+	BBOARD pawnBlockers = ((bishopattacksonfly & occ) & bitboards[(color ? P : p)]);
+	if (color) {
+		pawnBlockers &= ~(0xFFFFFFFFFFFFFFFFULL << (queenSq + 1));
+	}
+	else {
+		pawnBlockers &= ~(0xFFFFFFFFFFFFFFFFULL >> (64 - queenSq));
+	}
+
+	printf("Pawn Blockers: \n\n");
+	printBitboard(pawnBlockers);
+	getchar();
+
+	// Get attacks through pieces
+	BBOARD throughPieces = (attacks ^ get_queen_attacks(queenSq, occ ^ pieceBlockers));
+
+	// Get attacks through pawns
+	BBOARD throughPawns = 0ULL;
+	while (pawnBlockers) {
+		int pawnSq = getLSB(pawnBlockers); 
+		printf("\n\nPawn on square: %s\n\n", index_to_coordinate[pawnSq]);
+		getchar();
+		// Get queen attacks as if the pawn wasn't there
+		BBOARD withoutPawn = bishopattacksonfly;
+
+		// Get the ray direction from queen to pawn
+		int pawnFile = pawnSq % 8;
+		int pawnRank = pawnSq / 8;
+		int queenFile = queenSq % 8;
+		int queenRank = queenSq / 8;
+
+		// Calculate direction
+		int fileDir = (pawnFile - queenFile) ? (pawnFile - queenFile) / abs(pawnFile - queenFile) : 0;
+		int rankDir = (pawnRank - queenRank) ? (pawnRank - queenRank) / abs(pawnRank - queenRank) : 0;
+
+		// Get pawn's attack squares
+		BBOARD pawnAttacks = pawn_attacks[color][pawnSq];
+
+		// Filter pawn attacks to only include the square that continues along the ray
+		BBOARD validPawnAttacks = 0ULL;
+		while (pawnAttacks) {
+			int attackSq = getLSB(pawnAttacks);
+			int attackFile = attackSq % 8;
+			int attackRank = attackSq / 8;
+
+			// Check if attack square continues along the same direction
+			if ((attackFile - pawnFile) == fileDir && (attackRank - pawnRank) == rankDir) {
+				validPawnAttacks |= (1ULL << attackSq);
+			}
+			pop_bit(pawnAttacks, attackSq);
+		}
+
+		throughPawns |= (validPawnAttacks & withoutPawn);
+		pop_bit(pawnBlockers, pawnSq);
+	}
+
+	return throughPieces | throughPawns;
+}
+
+BBOARD attacksTo(BBOARD occupancy, int sq) {
+	BBOARD knights, kings, bishopsQueens, rooksQueens;
+	BBOARD attackers = 0ULL;
+
+	knights = bitboards[N] | bitboards[n];
+	kings = bitboards[K] | bitboards[k];
+	rooksQueens = bitboards[Q] | bitboards[q];
+	bishopsQueens = bitboards[Q] | bitboards[q];
+	rooksQueens |= bitboards[R] | bitboards[r];
+	bishopsQueens |= bitboards[B] | bitboards[b];
+
+	// Get direct attackers
+	attackers |= (pawn_attacks[white][sq] & bitboards[p])
+		| (pawn_attacks[black][sq] & bitboards[P])
+		| (knight_attacks[sq] & knights)
+		| (king_attacks[sq] & kings)
+		| (get_bishop_attacks(sq, occupancy) & bishopsQueens)
+		| (get_rook_attacks(sq, occupancy) & rooksQueens);
+
+	// Add x-raying pieces
+	BBOARD whitePieces = bitboards[R] | bitboards[B] | bitboards[Q];
+	BBOARD blackPieces = bitboards[r] | bitboards[b] | bitboards[q];
+
+	// For each sliding piece
+	while (whitePieces) {
+		int piece_sq = getLSB(whitePieces);
+		// If this piece x-rays through to our target square
+		if ((get_bit(bitboards[R], piece_sq) || get_bit(bitboards[Q], piece_sq)) &&
+			(get_bit(xrayRookAttacks(white, occupancy, piece_sq), sq))) {
+			set_bit(attackers, piece_sq);
+		}
+		if ((get_bit(bitboards[B], piece_sq) || get_bit(bitboards[Q], piece_sq)) &&
+			(get_bit(xrayBishopAttacks(white, occupancy, piece_sq), sq))) {
+			set_bit(attackers, piece_sq);
+		}
+		pop_bit(whitePieces, piece_sq);
+	}
+
+	while (blackPieces) {
+		int piece_sq = getLSB(blackPieces);
+		if ((get_bit(bitboards[r], piece_sq) || get_bit(bitboards[q], piece_sq)) &&
+			(get_bit(xrayRookAttacks(black, occupancy, piece_sq), sq))) {
+			set_bit(attackers, piece_sq);
+		}
+		if ((get_bit(bitboards[b], piece_sq) || get_bit(bitboards[q], piece_sq)) &&
+			(get_bit(xrayBishopAttacks(black, occupancy, piece_sq), sq))) {
+			set_bit(attackers, piece_sq);
+		}
+		pop_bit(blackPieces, piece_sq);
+	}
+
+	return attackers;
+}
 
 /*
 |---------------------------------------------|
@@ -974,7 +1142,7 @@ int make_move(int move, int moveFlag) {
 		int enpassant = get_move_enpassant(move);
 		int castling = get_move_castling(move);
 
-
+		if (source == target) return 0;
 
 		pop_bit(bitboards[piece], source);
 		set_bit(bitboards[piece], target);
@@ -1537,7 +1705,7 @@ void perft_test(int depth)
 	printf("       Number of Castles: %d\n", numcastles);
 	printf("       Number of En Passant: %d\n", numep);
 	printf("       Number of Promotions: %d\n", numpromotions);
-	printf("     Time: %ld\n\n", get_elapsed_time_ms() - start);
+	printf("     Time: %lu\n\n", get_elapsed_time_ms() - start);
 	
 }
 
@@ -1804,6 +1972,8 @@ int evaluate() {
 
 
 
+int getLeastValuablePiece;
+
 
 
 /*
@@ -1813,6 +1983,59 @@ int evaluate() {
 |                                             |
 |---------------------------------------------|
 */
+
+#define hash_table_size 800000
+
+typedef struct {
+	U64 zobrist;
+	int depth;
+	int eval;
+	int bestmove;
+
+} tt;
+
+tt hash_table[hash_table_size];
+
+// MVV_LVA[attacker][target]
+int mvv_lva[12][12] = {
+	105, 205, 305, 405, 505, 605,  105, 205, 305, 405, 505, 605,
+	104, 204, 304, 404, 504, 604,  104, 204, 304, 404, 504, 604,
+	103, 203, 303, 403, 503, 603,  103, 203, 303, 403, 503, 603,
+	102, 202, 302, 402, 502, 602,  102, 202, 302, 402, 502, 602,
+	101, 201, 301, 401, 501, 601,  101, 201, 301, 401, 501, 601,
+	100, 200, 300, 400, 500, 600,  100, 200, 300, 400, 500, 600,
+
+	105, 205, 305, 405, 505, 605,  105, 205, 305, 405, 505, 605,
+	104, 204, 304, 404, 504, 604,  104, 204, 304, 404, 504, 604,
+	103, 203, 303, 403, 503, 603,  103, 203, 303, 403, 503, 603,
+	102, 202, 302, 402, 502, 602,  102, 202, 302, 402, 502, 602,
+	101, 201, 301, 401, 501, 601,  101, 201, 301, 401, 501, 601,
+	100, 200, 300, 400, 500, 600,  100, 200, 300, 400, 500, 600
+};
+
+int score_moves(int move) {
+	if (get_move_capture(move)) {
+		int targetpiece;
+
+		int startpiece = (sideToMove == white) ? p : P;
+		int endpiece = (sideToMove == white) ? k : K;
+
+		for (; startpiece <= endpiece; startpiece++) {
+			// If piece found on target square, pop and remove from hash key
+			if (get_bit(bitboards[startpiece], get_move_target(move))) {
+
+				targetpiece = startpiece;
+				break;
+			}
+		}
+
+		printf("Source piece: %c\n", ascii_pieces[get_move_piece(move)]);
+		printf("Target piece: %c\n", ascii_pieces[targetpiece]);
+
+		return mvv_lva[get_move_piece(move)][targetpiece];
+	}
+}
+
 
 int quiescence(int alpha, int beta) {
 	int stand_pat = evaluate();
@@ -1852,92 +2075,91 @@ int quiescence(int alpha, int beta) {
 	return alpha;
 }
 
+
+int ply;
+int bestMove;
+
 int alphaBeta(int alpha, int beta, int depthleft) {
-	//printf("AlphaBeta called\n");
+	int foundPV = 0;
+
 	if (depthleft == 0) {
-		//printf("\nDepth is 0, returning...\n");
-		//getchar();
 		nodes++;
-		return evaluate(); //quiescence(alpha, beta);  // Add quiescence search
+		return quiescence(alpha, beta);
 	}
 
-	moveList move_list = (moveList){
+	moveList move_list = {
 		.moves = {0},
 		.moveCount = 0
 	};
 
+	int is_king_in_check = is_square_attacked(
+		(sideToMove == white) ? getLSB(bitboards[K]) : getLSB(bitboards[k]),
+		sideToMove ^ 1
+	);
+
+	int legal_moves = 0;
 	generate_legal_moves(&move_list);
 
-	for (int move = 0; move < move_list.moveCount; move++) {  // Loop over all possible moves
-		copy_position();  
-
-		if (!make_move(move_list.moves[move], all_moves)) { // Make the move
-			continue;
-		}
-		nodes++;
-		// Recursively call alphaBeta, negating the alpha and beta values (changing perspective)
-		int score = -alphaBeta(-beta, -alpha, depthleft - 1);
-
-		take_back();  // Undo the move
-
-		if (score >= beta) {
-			//printf("\nBET CUTOFF\n");
-			return beta;   // fail hard beta-cutoff
-		}
-		if (score > alpha) {
-			//printf("\nNEW BEST ALPHA\n");
-			alpha = score; // Update the best score for the maximizing player
-		}
-
-	}
-	
-	return alpha;  // Return the best score found
-}
-
-
-
-int findBestMove(int depth) {
-	moveList moves = {
-		.moves = {0},
-		.moveCount = 0
-	};
-
-	generate_legal_moves(&moves);
-
-	int bestMove = 0;
-	int alpha = -50000;  // Use same bounds as your evaluation
-	int beta = 50000;
-	int bestScore = -50000;
-
-	// Search each move
-	for (int i = 0; i < moves.moveCount; i++) {
+	// Search moves
+	for (int i = 0; i < move_list.moveCount; i++) {
+		int score;
 		copy_position();
 
-		if (!make_move(moves.moves[i], all_moves)) {
+		if (!make_move(move_list.moves[i], all_moves)) {
 			continue;
 		}
 
-		// Search with current alpha-beta window
-		int score = -alphaBeta(-beta, -alpha, depth - 1);
+		ply++;
+		legal_moves++;
+		nodes++;
+
+		if (foundPV) {
+			score = -alphaBeta(-alpha - 1, -alpha, depthleft - 1);
+			if ((score > alpha) && (score < beta)) {
+				score = -alphaBeta(-beta, -alpha, depthleft - 1);
+			}
+		}
+
+		else {
+			score = -alphaBeta(-beta, -alpha, depthleft - 1);
+		}
 
 		take_back();
+		ply--;
 
-		// Update best move if we found a better score
-		if (score > bestScore) {
-			bestScore = score;
-			bestMove = moves.moves[i];
+		// Beta cutoff
+		if (score >= beta) {
+			return beta;
+		}
 
-			if (score > alpha) {
-				alpha = score;
+		// Found better move
+		if (score > alpha) {
+			alpha = score;
+			//foundPV = 1;
+			
+			if (ply == 0) {
+				bestMove = move_list.moves[i];
 			}
 		}
 	}
 
-	return bestMove;
+	// Handle checkmate/stalemate
+	if (legal_moves == 0) {
+		if (is_king_in_check) {
+			return -49000 + ply; // Checkmate
+		}
+		else {
+			return 0; // Stalemate
+		}
+	}
+
+	return alpha;
 }
 
 
+int search() {
 
+}
 
 
 
@@ -1987,6 +2209,7 @@ int parse_uci_move(const char* uci_move) {
 		if (source == get_move_source(legal_moves.moves[move]) && target == get_move_target(legal_moves.moves[move]) && promotion == get_move_promotion(legal_moves.moves[move])) {
 
 			if (make_move(legal_moves.moves[move], all_moves)) {
+				//printf("Made move..\n");
 				return 1;
 			}
 
@@ -2004,48 +2227,51 @@ int parse_uci_move(const char* uci_move) {
 
 
 int parse_uci_position(char* cmd) {
+	// Reset the board state before processing new position
+	memset(bitboards, 0, sizeof(bitboards));
+	memset(occupancy, 0, sizeof(occupancy));
+	ep = no_sq;
+	castlingRights = 0;
+	sideToMove = -1;
+	hash_key = 0ULL;
 
 	// Create a modifiable copy of the command string
-	char cmd_copy[4096];  
+	char cmd_copy[4096];
 	strcpy_s(cmd_copy, sizeof(cmd_copy), cmd);
 	char* current_cmd = cmd_copy;
 
 	current_cmd += 9; // Shift from 'position' to 'fen' or 'startpos'
+
+	// Handle startpos
 	if (!strncmp(current_cmd, "startpos", 8)) {
 		parseFen(starting_pos);
+		current_cmd += 8; // Move past "startpos"
 	}
-
+	// Handle FEN
 	else if (!strncmp(current_cmd, "fen", 3)) {
-		char* fen = strstr(current_cmd, "fen");
-
-		if (fen == NULL) {
-			parseFen(starting_pos);
-		}
-
-		else {
-			fen += 4;
-			parseFen(fen);
-		}
-
+		current_cmd += 4; // Move past "fen "
+		parseFen(current_cmd);
+		// Move current_cmd to end of FEN string
+		while (*current_cmd && *current_cmd != 'm') current_cmd++;
+	}
+	else {
+		return 0; // Invalid command
 	}
 
-	else return 0; // Invalid command 
-
-	
+	// Handle moves if present
 	char* moves = strstr(current_cmd, "moves");
 	if (moves) {
-	char* context = NULL;
-	moves += 6;
-	
-		char* move = strtok_s(moves, " ", &context);
-		while (move) {
-			if (parse_uci_move(move) == 0) {
-				
-				return 0; // Stop if an invalid move is encountered
-			}
-			move = strtok_s(NULL, " ", &context);
-		}
+		char* context = NULL;
+		moves += 6; // Move past "moves "
 
+		char* move = strtok_s(moves, " \n", &context);
+		while (move) {
+			if (!parse_uci_move(move)) {
+				printf("info string Invalid move: %s\n", move);
+				return 0;
+			}
+			move = strtok_s(NULL, " \n", &context);
+		}
 	}
 
 	return 1;
@@ -2057,15 +2283,21 @@ void parse_uci_go(char* cmd) {
 	if (!strncmp(current_cmd, "depth", 5)) {
 		current_cmd += 6; // Shift from 'depth' to depth number
 		int depth = atoi(current_cmd);
-		int bestMove = findBestMove(depth);
+		alphaBeta(-inf, inf, depth);
 		printf("bestmove ");
 		print_move(bestMove);
 		printf("\n");
 	}
 
+	else if (!strncmp(current_cmd, "perft", 5)) {
+		current_cmd += 6; // Shift from 'perft' to depth number
+		int depth = atoi(current_cmd);
+		perft_test(depth);
+	}
+
 	else {
 		int depth = 6;
-		int bestMove = findBestMove(depth);
+		alphaBeta(-inf, inf, depth);
 		printf("bestmove ");
 		print_move(bestMove);
 		printf("\n");
@@ -2079,6 +2311,8 @@ void uci_loop() {
 	setvbuf(stdout, NULL, _IONBF, 0);
 
 	char input[2000];
+
+	
 
 	printf("id name ShockFish\n");
 	printf("id author AtomicChessSensei\n");
@@ -2151,11 +2385,51 @@ void init_all() {
 }
 
 int main() {
-
+	// DO NOT COMMENT OUT INIT ALL
 	init_all();
+
+	int debug = 1;
+
+	if (debug) {
+
+
+		parseFen("1k6/8/8/5P2/4B3/3Q4/8/1K6 w - - 0 1");
+		printBitboard(xrayQueenAttacks(white, occupancy[both], d3));
+	}
+
+
+
+
+
+
+	else {
+		uci_loop();
+	}
 	
-	uci_loop();
 	
+
+	/*
+	parseFen("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
+	
+	moveList test = (moveList){
+		.moves = {0},
+		.moveCount = 0
+	};
+	generate_legal_moves(&test);
+	
+	
+	for (int move = 0; move < test.moveCount; move++) {
+		
+		
+		print_move(test.moves[move]);
+		
+		printf("\n");
+		printf("MVV_LV VALUE: %d\n", score_moves(test.moves[move]));
+		getchar();
+	} 
+	*/
+	
+
 	return 0;
 }
 
