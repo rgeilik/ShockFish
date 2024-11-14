@@ -386,7 +386,15 @@ void parseFen(char* fen) {
 }
 
 
-
+int get_captured_piece(int move) {
+	int targetSq = get_move_target(move);
+	for (int startPiece = (sideToMove) ? p : P; startPiece <= (sideToMove) ? k : K; startPiece++) {
+		BBOARD bitboard = bitboards[startPiece];
+		if (get_bit(bitboard, targetSq)) {
+			return startPiece;
+		}
+	}
+}
 
 
 
@@ -783,6 +791,38 @@ BBOARD get_queen_attacks(int square, BBOARD occupancy) {
 
 
 
+BBOARD getFurthestBishopBlocker(int bishopSq, BBOARD occupancy) {
+	BBOARD furthestBlockers = 0ULL;
+	int bishopRank = bishopSq / 8;
+	int bishopFile = bishopSq % 8;
+
+	// Check all 4 diagonal directions
+	const int directions[4][2] = { {1,1}, {1,-1}, {-1,1}, {-1,-1} }; // {rank_dir, file_dir}
+
+	for (int dir = 0; dir < 4; dir++) {
+		int rank = bishopRank + directions[dir][0];
+		int file = bishopFile + directions[dir][1];
+		int furthestSq = -1;
+
+		// Follow the diagonal until edge or blocker
+		while (rank >= 0 && rank < 8 && file >= 0 && file < 8) {
+			int sq = rank * 8 + file;
+			if (occupancy & (1ULL << sq)) {
+				furthestSq = sq; // Keep updating - last one will be furthest
+			}
+			rank += directions[dir][0];
+			file += directions[dir][1];
+		}
+
+		// If we found a blocker in this direction, add it
+		if (furthestSq != -1) {
+			furthestBlockers |= (1ULL << furthestSq);
+		}
+	}
+
+	return furthestBlockers;
+}
+
 // Checks if square is attacked by a side
 int is_square_attacked(int square, int side) {
 	// Check for pawn attacks
@@ -817,12 +857,13 @@ BBOARD xrayRookAttacks(int color, BBOARD occ, int rookSq) {
 
 BBOARD xrayBishopAttacks(int color, BBOARD occ, int bishopSq) {
 	BBOARD attacks = get_bishop_attacks(bishopSq, occ);
+	BBOARD possibleAttacks = bishop_relevant_occupancy(bishopSq);
 
 	// Get piece blockers
-	BBOARD pieceBlockers = ((attacks & occ) & (bitboards[(color) ? B : b] | bitboards[(color) ? Q : q]));
+	BBOARD pieceBlockers = (possibleAttacks & (bitboards[(color) ? B : b] | bitboards[(color) ? Q : q]));
 
 	// Get pawn blockers that are in front based on color
-	BBOARD pawnBlockers = ((attacks & occ) & bitboards[(color ? P : p)]);
+	BBOARD pawnBlockers = (possibleAttacks & bitboards[(color ? P : p)]);
 	if (color) { // white bishop
 		pawnBlockers &= ~(0xFFFFFFFFFFFFFFFFULL << (bishopSq + 1));
 	}
@@ -830,8 +871,28 @@ BBOARD xrayBishopAttacks(int color, BBOARD occ, int bishopSq) {
 		pawnBlockers &= ~(0xFFFFFFFFFFFFFFFFULL >> (64 - bishopSq));
 	}
 
+	BBOARD totalBlockers = (pieceBlockers | pawnBlockers);
+	BBOARD furthestPieceBlockers = getFurthestBishopBlocker(bishopSq, pieceBlockers);
+	BBOARD furthestPawnBlockers = getFurthestBishopBlocker(bishopSq, pawnBlockers);
+
+	while (furthestPieceBlockers) {
+		BBOARD blocker = (1ULL << getLSB(furthestPieceBlockers));
+		int pieceType;
+		
+		int startPiece = (color == white) ? P : p;
+		int endPiece = (color == white) ? Q : q;
+		for (; startPiece <= endPiece; startPiece++) {
+			if (blocker & bitboards[startPiece]) { pieceType = startPiece; break; }
+		}
+		//BBOARD xray_attacks |= (~get_bishop_attacks(bishopSq, furthestPieceBlockers) & possibleAttacks);
+
+		if (pieceType == ((color == white) ? P : p)) {
+
+		}
+
+	}
 	// Get attacks through pieces
-	BBOARD throughPieces = (attacks ^ get_bishop_attacks(bishopSq, occ ^ pieceBlockers));
+	BBOARD throughPieces = (possibleAttacks);
 
 	// Get attacks through pawns
 	BBOARD throughPawns = 0ULL;
@@ -940,10 +1001,11 @@ BBOARD attacksTo(BBOARD occupancy, int sq) {
 		| (get_bishop_attacks(sq, occupancy) & bishopsQueens)
 		| (get_rook_attacks(sq, occupancy) & rooksQueens);
 
+	/*
 	// Add x-raying pieces
 	BBOARD whitePieces = bitboards[R] | bitboards[B] | bitboards[Q];
 	BBOARD blackPieces = bitboards[r] | bitboards[b] | bitboards[q];
-
+	
 	// For each sliding piece
 	while (whitePieces) {
 		int piece_sq = getLSB(whitePieces);
@@ -970,7 +1032,7 @@ BBOARD attacksTo(BBOARD occupancy, int sq) {
 			set_bit(attackers, piece_sq);
 		}
 		pop_bit(blackPieces, piece_sq);
-	}
+	} */
 
 	return attackers;
 }
@@ -1972,7 +2034,7 @@ int evaluate() {
 
 
 
-int getLeastValuablePiece;
+
 
 
 
@@ -1996,6 +2058,13 @@ typedef struct {
 
 tt hash_table[hash_table_size];
 
+
+
+
+
+/*------------------------MOVE ORDERING--------------------------*/
+
+
 // MVV_LVA[attacker][target]
 int mvv_lva[12][12] = {
 	105, 205, 305, 405, 505, 605,  105, 205, 305, 405, 505, 605,
@@ -2013,31 +2082,130 @@ int mvv_lva[12][12] = {
 	100, 200, 300, 400, 500, 600,  100, 200, 300, 400, 500, 600
 };
 
-int score_moves(int move) {
-	if (get_move_capture(move)) {
-		int targetpiece;
 
-		int startpiece = (sideToMove == white) ? p : P;
-		int endpiece = (sideToMove == white) ? k : K;
-
-		for (; startpiece <= endpiece; startpiece++) {
-			// If piece found on target square, pop and remove from hash key
-			if (get_bit(bitboards[startpiece], get_move_target(move))) {
-
-				targetpiece = startpiece;
-				break;
-			}
+BBOARD getLeastValuablePiece(BBOARD attadef, int side, int* piece) {
+	for (int startPiece = p; startPiece <= k; startPiece++) {
+		int offset = side * 6; // Black piece - offset = white piece
+		BBOARD bitboard = (bitboards[startPiece - offset] & attadef);
+		if (bitboard) {
+			*piece = startPiece - offset;
+			return bitboard & (~bitboard + 1);
 		}
-
-		printf("Source piece: %c\n", ascii_pieces[get_move_piece(move)]);
-		printf("Target piece: %c\n", ascii_pieces[targetpiece]);
-
-		return mvv_lva[get_move_piece(move)][targetpiece];
+	
 	}
+	return 0ULL;
 }
 
 
+int see(int move) {
+	int gain[32], d = 0;
+	BBOARD pawns = (bitboards[P] | bitboards[p]);
+	BBOARD verticals = bitboards[R] | bitboards[r] | bitboards[Q] | bitboards[q];
+	BBOARD diagonals = bitboards[B] | bitboards[b] | bitboards[Q] | bitboards[q];
+	BBOARD allsliders = verticals | diagonals | pawns;
+	BBOARD fromSet = (1ULL << get_move_source(move));
+	BBOARD occ = occupancy[both];
+	BBOARD attadef = attacksTo(occ, get_move_target(move));
+	int capturingPiece = get_move_piece(move);
+	int side = sideToMove;
+
+	if (capturingPiece == P && get_rank[get_move_target(move)] == 8) {
+		int promotedPiece = get_move_promotion(move);
+		gain[d] = abs(mg_value[promotedPiece]) + abs(mg_value[get_captured_piece(move)]) - abs(mg_value[P]);
+	}
+
+	else if (capturingPiece == p && get_rank[get_move_target(move)] == 1) {
+		int promotedPiece = get_move_promotion(move);
+		gain[d] = abs(mg_value[promotedPiece]) + abs(mg_value[get_captured_piece(move)]) - abs(mg_value[p]);
+	}
+
+	else {
+		gain[d] = get_captured_piece(move) != -1 ? abs(mg_value[get_captured_piece(move)]) : 0;
+	}
+
+	if (get_move_enpassant(move)) {
+		gain[d] = mg_value[P];
+	}
+
+	do {
+		d++;
+		gain[d] = abs(mg_value[capturingPiece]) - gain[d - 1];
+		occ ^= fromSet;
+		attadef ^= fromSet;
+
+		if (fromSet & allsliders) {
+
+			if (capturingPiece == R || capturingPiece == r || capturingPiece == Q || capturingPiece == q) {
+				attadef |= (rook_attack_mask(get_move_target(move), occ) & verticals);
+			}
+
+			if (capturingPiece == P || capturingPiece == p || capturingPiece == B || capturingPiece == b || capturingPiece == Q || capturingPiece == q) {
+				attadef |= (bishop_attack_mask(get_move_target(move), occ) & diagonals);
+			}
+			attadef ^= fromSet;
+		}
+
+		attadef &= occ;
+		side ^= 1;
+		fromSet = getLeastValuablePiece(attadef, side, &capturingPiece);
+
+		if (capturingPiece == P && get_rank[get_move_target(move)] == 8) {
+			capturingPiece = Q;
+		}
+
+		else if (capturingPiece == p && get_rank[get_move_target(move)] == 1) {
+			capturingPiece = q;
+		}
+
+	} while (fromSet);
+
+	while (--d) {
+		gain[d - 1] = -max(-gain[d - 1], gain[d]);
+	}
+
+	return gain[0];
+}
+
+int compare_moves(const void* a, const void* b) {
+	// Extract the move indices
+	int moveA = *(int*)a;
+	int moveB = *(int*)b;
+
+	// Compute move scores for both moves
+	int scoreA = score_move(moveA);  // Get the score for moveA
+	int scoreB = score_move(moveB);  // Get the score for moveB
+
+	// Return the comparison result (in descending order)
+	return scoreB - scoreA;  // If scoreB > scoreA, return positive, so moveB comes first
+}
+
+int score_move(int move) {
+
+	if (get_move_capture(move)) {
+		
+		int move_score = see(move);
+		return move_score;
+	}
+
+	else {
+
+	}
+	return 0;
+}
+
+void order_moves(moveList* move_list) {
+	// Sort moves[] array by their move_score using qsort
+	qsort(move_list->moves, move_list->moveCount, sizeof(int), compare_moves);
+
+	
+
+}
+
+int ply = 0; // Define ply variable
+
 int quiescence(int alpha, int beta) {
+	nodes++;
+
 	int stand_pat = evaluate();
 	if (stand_pat >= beta) {
 		return beta;
@@ -2052,17 +2220,21 @@ int quiescence(int alpha, int beta) {
 		.moveCount = 0
 	};
 	generate_legal_moves(&every_move);
+	order_moves(&every_move);
 
 	for (int move = 0; move < every_move.moveCount; move++) {
 		nodes++;
 		copy_position();
+		ply++;
 
 		if (!make_move(every_move.moves[move], only_captures)) {
+			ply--;
 			continue;
 		}
-		nodes--;
+		
 		int score = -quiescence(-beta, -alpha);
 
+		ply--;
 		take_back();
 
 		if (score >= beta) {
@@ -2076,11 +2248,12 @@ int quiescence(int alpha, int beta) {
 }
 
 
-int ply;
+
 int bestMove;
 
 int alphaBeta(int alpha, int beta, int depthleft) {
 	int foundPV = 0;
+	nodes++;
 
 	if (depthleft == 0) {
 		nodes++;
@@ -2099,19 +2272,23 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 
 	int legal_moves = 0;
 	generate_legal_moves(&move_list);
+	order_moves(&move_list);
+	
 
 	// Search moves
 	for (int i = 0; i < move_list.moveCount; i++) {
 		int score;
 		copy_position();
+		ply++;
 
 		if (!make_move(move_list.moves[i], all_moves)) {
+			ply--;
 			continue;
 		}
 
 		ply++;
 		legal_moves++;
-		nodes++;
+		
 
 		if (foundPV) {
 			score = -alphaBeta(-alpha - 1, -alpha, depthleft - 1);
@@ -2124,8 +2301,9 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 			score = -alphaBeta(-beta, -alpha, depthleft - 1);
 		}
 
-		take_back();
 		ply--;
+		take_back();
+		
 
 		// Beta cutoff
 		if (score >= beta) {
@@ -2135,7 +2313,7 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 		// Found better move
 		if (score > alpha) {
 			alpha = score;
-			//foundPV = 1;
+			foundPV = 1;
 			
 			if (ply == 0) {
 				bestMove = move_list.moves[i];
@@ -2296,12 +2474,13 @@ void parse_uci_go(char* cmd) {
 	}
 
 	else {
-		int depth = 6;
+		int depth = 8;
 		alphaBeta(-inf, inf, depth);
 		printf("bestmove ");
 		print_move(bestMove);
 		printf("\n");
 	}
+	
 
 
 }
@@ -2391,10 +2570,11 @@ int main() {
 	int debug = 1;
 
 	if (debug) {
-
-
-		parseFen("1k6/8/8/5P2/4B3/3Q4/8/1K6 w - - 0 1");
-		printBitboard(xrayQueenAttacks(white, occupancy[both], d3));
+		parseFen(kiwipete);
+		print_board();
+		alphaBeta(-inf, inf, 6);
+		printf("Nodes: %llu", nodes);
+		
 	}
 
 

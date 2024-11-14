@@ -32,6 +32,8 @@
 
 #define inf 50000 // Defnition for search and AlphaBeta pruning
 
+
+
 typedef unsigned long long BBOARD; // typedef for bitboard type
 typedef unsigned long long U64; // typedef for U64 type for better readability
 
@@ -130,6 +132,9 @@ extern const BBOARD not_H_file = 9187201950435737471ULL;
 extern const BBOARD not_AB_file = 18229723555195321596ULL;
 extern const BBOARD not_HG_file = 4557430888798830399ULL;
 extern const BBOARD not_edges = 35604928818740736ULL;
+
+extern const BBOARD top_half = 4294967295ULL;
+extern const BBOARD bottom_half = 18446744069414584320ULL;
 //extern const BBOARD not_1_rank = 72057594037927935ULL;
 //extern const BBOARD not_8_rank = 18446744073709551360ULL;
 
@@ -167,6 +172,18 @@ const int promotion_ability[64] = {
 	0, 0, 0, 0, 0, 0, 0, 0,
 	2, 2, 2, 2, 2, 2, 2, 2,
 	0, 0, 0, 0, 0, 0, 0, 0
+};
+
+const int get_rank[64] = {
+
+	8, 8, 8, 8, 8, 8, 8, 8,
+	7, 7, 7, 7, 7, 7, 7, 7,
+	6, 6, 6, 6, 6, 6, 6, 6,
+	5, 5, 5, 5, 5, 5, 5, 5,
+	4, 4, 4, 4, 4, 4, 4, 4,
+	3, 3, 3, 3, 3, 3, 3, 3,
+	2, 2, 2, 2, 2, 2, 2, 2,
+	1, 1, 1, 1, 1, 1, 1, 1
 };
 
 
