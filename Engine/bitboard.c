@@ -184,6 +184,9 @@ U64 side_key;
 // Position Zobrist hash key
 U64 hash_key = 0ULL;
 
+U64 repetition_table[1000];
+int repetition_index = 0;
+
 int numcaptures = 0;
 int numep = 0;
 int numcastles = 0;
@@ -325,6 +328,15 @@ static inline int count_bits(BBOARD bitboard) {
 void parseFen(char* fen) {
 	int i = 0;
 	int exitLoops = 0;
+
+	sideToMove = 0;
+	ep = no_sq;
+	castlingRights = 0;
+
+	memset(bitboards, 0ULL, sizeof(bitboards));
+	memset(occupancy, 0ULL, sizeof(occupancy));
+
+	memset(repetition_table, 0ULL, sizeof(repetition_table));
 
 	// Parse piece positions and update piece bitboards
 	for (int rank = 0; rank < 8; rank++) {
@@ -2159,7 +2171,7 @@ int evaluate() {
 |---------------------------------------------|
 */
 
-#define hash_table_size 800000
+#define hash_table_size 32000000
 #define max_ply 64
 
 #define ALLNODE 0
@@ -2179,15 +2191,25 @@ typedef struct {
 
 } tt;
 
-tt* hash_table = NULL;
+tt hash_table[hash_table_size];
 
 int pv_length[max_ply];
 int pv_table[max_ply][max_ply];
 
 void clear_hashtable() {
-	memset(hash_table, 0, (sizeof(tt) * hash_entries));
+
+		// loop over TT elements
+		for (int index = 0; index < hash_table_size; index++)
+		{
+			// reset TT inner fields
+			hash_table[index].zobrist = 0;
+			hash_table[index].depth = 0;
+			hash_table[index].type = 0;
+			hash_table[index].eval = 0;
+		}
 }
 
+/*
 void init_hash_table(int sizemb) {
 	
 	int bytes = sizemb * 1024 * 1024;
@@ -2202,10 +2224,10 @@ void init_hash_table(int sizemb) {
 	hash_table = (tt*)malloc(sizeof(tt) * hash_entries);
 
 	clear_hashtable();
-}
+} */
 
 int read_hash_entry(int alpha, int beta, int depth) {
-	int index = hash_key % hash_entries;
+	int index = hash_key % hash_table_size;
 
 	tt* entry = &hash_table[index];
 
@@ -2229,13 +2251,12 @@ int read_hash_entry(int alpha, int beta, int depth) {
 		}
 	}
 
-	else
 		return NO_HASH_ENTRY;
 }
 
 void write_hash_entry(int score, int depth, int hash_flag) {
 
-	int index = hash_key % hash_entries;
+	int index = hash_key % hash_table_size;
 
 	tt* entry = &hash_table[index];
 
@@ -2454,6 +2475,18 @@ void print_move_scores(moveList* move_list)
 
 
 
+int is_repetition()
+{
+
+	for (int index = 0; index < repetition_index; index++) {
+
+		if (repetition_table[index] == hash_key)
+			return 1;
+	}
+
+
+	return 0;
+}
 
 
 int quiescence(int alpha, int beta) {
@@ -2487,13 +2520,12 @@ int quiescence(int alpha, int beta) {
 	//getchar();
 	for (int move = 0; move < every_move.moveCount; move++) {
 		
-		//printf("MOVE: ");
-		//print_move(every_move.moves[move]);
-		//printf("\n");
-
 		copy_position();
 		int see_score = 0;
 		ply++;
+
+		repetition_index++;
+		repetition_table[repetition_index] = hash_key;
 		
 		if (get_move_capture(every_move.moves[move])) {
 			see_score = see(every_move.moves[move]);
@@ -2546,20 +2578,19 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 	
 	int node_type = FAILOW; // Define node type for storing entries in transposition tables
 
-	// PV length initialisation
-	pv_length[ply] = ply;
-
 	int pv_node = beta - alpha > 1;
 
+	
 	if (ply && (score = read_hash_entry(alpha, beta, depthleft)) != NO_HASH_ENTRY && pv_node == 0)
-		// if the move has already been searched (hence has a value)
-		// we just return the score for this move without searching it
-		return score;
+		return score; 
 
 
 	if ((nodes & 2047) == 0) {
 		communicate();
 	}
+
+	// PV length initialisation
+	pv_length[ply] = ply;
 
 	if (depthleft == 0) {
 		nodes++;
@@ -2585,7 +2616,7 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 
 	
 	int evaluation = evaluate();
-	//NULL MOVE PRUNING (CRAZY NODE CUT THOUGH)
+	//NULL MOVE PRUNING
 	if (depthleft >= 3 && !is_king_in_check && evaluation >= beta) {
 		copy_position();
 		ply++;
@@ -3051,11 +3082,13 @@ void uci_loop() {
 
 
 void init_all() {
-	gen_zobrist_keys();
-	init_hash_table(500);
+	
 	init_leaper_attacks();
 	init_slider_attackTables(rook);
 	init_slider_attackTables(bishop);
+	gen_zobrist_keys();
+	//init_hash_table(20);
+	clear_hashtable();
 	init_piece_values();
 }
 
@@ -3067,15 +3100,11 @@ int main() {
 
 	if (debug) {
 		
-		parseFen(kiwipete);
+		parseFen("8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - -");
 		printf("-------INITIAL POSITION-----------\n");
 		print_board();
 		printf("\n\n\n");
-		search(7);
-		printf("Score for random entry in TT: %d", hash_table[hash_key % hash_entries].eval);
-		make_move(encode_move(g2, h3, P, 0, 1, 0, 0, 0), all_moves);
-		search(7);
-		printf("Score for random entry in TT after move: %d", hash_table[hash_key % hash_entries].eval);
+		
 		
 	}
 
@@ -3086,29 +3115,6 @@ int main() {
 	}
 	
 	
-
-	/*
-	parseFen("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
-	
-	moveList test = (moveList){
-		.moves = {0},
-		.moveCount = 0
-	};
-	generate_legal_moves(&test);
-	
-	
-	for (int move = 0; move < test.moveCount; move++) {
-		
-		
-		print_move(test.moves[move]);
-		
-		printf("\n");
-		printf("MVV_LV VALUE: %d\n", score_moves(test.moves[move]));
-		getchar();
-	} 
-	*/
-	
-
 	return 0;
 }
 
