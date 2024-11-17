@@ -5,6 +5,7 @@
 #include <windows.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 
 /*
 |---------------------------------------------|
@@ -184,7 +185,7 @@ U64 side_key;
 // Position Zobrist hash key
 U64 hash_key = 0ULL;
 
-U64 repetition_table[1000];
+U64 repetition_table[10000];
 int repetition_index = 0;
 
 int numcaptures = 0;
@@ -278,7 +279,7 @@ U64 generate_hash() {
 
 	// Perform Zobrist hashing for en passant
 	if (ep != no_sq) {
-		position_hash ^= ep_keys[ep];
+		position_hash ^= ep_keys[ep_ranks[ep]];
 	}
 
 	// Perform Zobrist hashing on position if side is black
@@ -336,6 +337,7 @@ void parseFen(char* fen) {
 	memset(bitboards, 0ULL, sizeof(bitboards));
 	memset(occupancy, 0ULL, sizeof(occupancy));
 
+	repetition_index = 0;
 	memset(repetition_table, 0ULL, sizeof(repetition_table));
 
 	// Parse piece positions and update piece bitboards
@@ -1379,13 +1381,13 @@ int make_move(int move, int moveFlag) {
 				if (sideToMove == white) {
 					pop_bit(bitboards[p], target + 8);
 					hash_key ^= piece_keys[p][target + 8];
-					hash_key ^= ep_keys[ep_ranks[target]]; // Remove en passant from hash
+					//hash_key ^= ep_keys[ep_ranks[target]]; // Remove en passant from hash
 				}
 
 				else {
 					pop_bit(bitboards[P], target - 8);
 					hash_key ^= piece_keys[P][target - 8];
-					hash_key ^= ep_keys[ep_ranks[target]]; // Remove en passant from hash
+					//hash_key ^= ep_keys[ep_ranks[target]]; // Remove en passant from hash
 				}
 
 			}
@@ -1802,6 +1804,10 @@ void generate_legal_moves(moveList* movelist) {
 /*----------PERFT DEBUG FUNCTIONS-------------*/
 
 U64 nodes;
+int initialDepth = 0;
+
+int move_history[100];
+int history_count = 0;
 
 void perft_driver(int depth) {
 	if (depth == 0) {
@@ -1823,13 +1829,39 @@ void perft_driver(int depth) {
 		{
 			continue;
 		}
+
+		// Add move to history
+		move_history[history_count++] = move_list.moves[move_count];
 		
+		
+		printf("---------POSITION AFTER MOVE----------\n\n");
+		printf("Move: ");
+		printf("%d. ", (initialDepth - depth + 1));
+		print_move(move_list.moves[move_count]);
+		printf("\n\n");
+		// Print move sequence at current node (before recursion)
+		printf("Sequence at depth %d: ", depth);
+		for (int i = 0; i < history_count; i++) {
+			if (i > 0) printf(" ");
+			if (i % 2 == 0) printf("%d.", (i / 2) + 1);
+			print_move(move_history[i]);
+		}
+		printf("\n");
+		print_board();
+		printf("Updated hash key: %llx\n", hash_key);
+		printf("Hash key from scratch: %llx\n\n", generate_hash());
+		if (hash_key != generate_hash())
+			getchar(); 
+
+		//assert(hash_key == generate_hash());
 
 		perft_driver(depth - 1);
 
+		history_count--;
 		take_back();
 	}
 }
+
 
 
 void perft_test(int depth)
@@ -1851,7 +1883,7 @@ void perft_test(int depth)
 
 	
 	long start = get_elapsed_time_ms();
-
+	printMoveList(&move_list);
 	// Loop over generated moves
 	for (int move_count = 0; move_count < move_list.moveCount; move_count++)
 	{
@@ -1860,12 +1892,35 @@ void perft_test(int depth)
 
 		
 		if (!make_move(move_list.moves[move_count], all_moves))
-			
 		{
 			continue;
 		}
-	
 		
+		// Add move to history
+		move_history[history_count++] = move_list.moves[move_count];
+		
+		printf("---------POSITION AFTER MOVE----------\n\n");
+		printf("Move: ");
+		printf("%d. ", (initialDepth - depth + 1));
+		print_move(move_list.moves[move_count]);
+		printf("\n\n");
+		// Print move sequence at current node (before recursion)
+		printf("Sequence at depth %d: ", depth);
+		for (int i = 0; i < history_count; i++) {
+			if (i > 0) printf(" ");
+			if (i % 2 == 0) printf("%d.", (i / 2) + 1);
+			print_move(move_history[i]);
+		}
+		printf("\n");
+		print_board();
+		printf("Updated hash key: %llx\n", hash_key);
+		printf("Hash key from scratch: %llx\n\n", generate_hash());
+		if (hash_key != generate_hash())
+			getchar();
+
+			
+
+		//assert(hash_key == generate_hash());
 		
 		long cummulative_nodes = nodes;
 
@@ -1875,7 +1930,7 @@ void perft_test(int depth)
 		// Old nodes
 		long old_nodes = nodes - cummulative_nodes;
 
-		
+		history_count--;
 		take_back();
 
 		// Print Move
@@ -2240,6 +2295,14 @@ int read_hash_entry(int alpha, int beta, int depth) {
 			if (score < -mate_score) score += ply;
 			if (score > mate_score) score -= ply; // IMPORTANT FOR CHECKMATES
 
+			/*
+			printf("READING HASH ENTRY...\n");
+			printf("Score: %d\n", score);
+			printf("Depth: %d\n", entry->depth);
+			printf("Hash Key: %llx\n", entry->zobrist);
+			printf("Node type: %d\n\n", entry->type);*/
+
+
 			if (entry->type == ALLNODE)
 				return score;
 
@@ -2267,6 +2330,17 @@ void write_hash_entry(int score, int depth, int hash_flag) {
 	entry->eval = score;
 	entry->type = hash_flag;
 	entry->depth = depth;
+	/*
+	printf("WRITING HASH ENTRY...\n");
+	printf("Score: %d\n", score);
+	printf("Depth: %d\n", entry->depth);
+	printf("Hash Key: %llx\n", entry->zobrist);
+	printf("Node type: %d\n\n", entry->type); */
+	
+
+//#define ALLNODE 0
+//#define FAILHIGH 1
+//#define FAILOW 2
 }
 
 /*------------------------MOVE ORDERING--------------------------*/
@@ -2520,6 +2594,7 @@ int quiescence(int alpha, int beta) {
 	//getchar();
 	for (int move = 0; move < every_move.moveCount; move++) {
 		
+	
 		copy_position();
 		int see_score = 0;
 		ply++;
@@ -2534,6 +2609,7 @@ int quiescence(int alpha, int beta) {
 			if (see_score < 0) {
 				//printf("BAD CAPTURE, SKIPPING..\n\n");
 				ply--;
+				repetition_index--;
 				continue;
 			}
 		} 
@@ -2542,6 +2618,7 @@ int quiescence(int alpha, int beta) {
 			//printf("CAPTURE FLAG: %d\n", (get_move_capture(every_move.moves[move])) ? 1 : 0);
 			//printf("NOT A CAPTURE, SKIPPING..\n\n");
 			ply--;
+			repetition_index--;
 			continue;
 			
 		}
@@ -2553,6 +2630,7 @@ int quiescence(int alpha, int beta) {
 		int score = -quiescence(-beta, -alpha);
 
 		ply--;
+		repetition_index--;
 		take_back();
 
 		if (stopped) return 0;
@@ -2568,7 +2646,8 @@ int quiescence(int alpha, int beta) {
 }
 
 
-
+const int reduction_limit = 3;
+const int full_depth_moves = 4;
 
 
 int alphaBeta(int alpha, int beta, int depthleft) {
@@ -2578,11 +2657,36 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 	
 	int node_type = FAILOW; // Define node type for storing entries in transposition tables
 
-	int pv_node = beta - alpha > 1;
+
+	// Futility margins
+	int FutilityMargins[9] = {
+		0,
+		100, // depth 1
+		160, // depth 2
+		220, // depth 3
+		280, // depth 4
+		340, // depth 5
+		400, // depth 6
+		460, // depth 7
+		520, // depth 8
+	};
+
+
+
+
+
+
+
+	if (ply && is_repetition())
+		return 0;
+
+	int is_pv_node = beta - alpha > 1;
 
 	
-	if (ply && (score = read_hash_entry(alpha, beta, depthleft)) != NO_HASH_ENTRY && pv_node == 0)
-		return score; 
+	if (ply && (score = read_hash_entry(alpha, beta, depthleft)) != NO_HASH_ENTRY && !is_pv_node) {
+		
+		return score;
+	}  
 
 
 	if ((nodes & 2047) == 0) {
@@ -2616,10 +2720,18 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 
 	
 	int evaluation = evaluate();
-	//NULL MOVE PRUNING
+
+
+	
+	
+
+	/*-----------NULL MOVE PRUNING-------------*/
 	if (depthleft >= 3 && !is_king_in_check && evaluation >= beta) {
 		copy_position();
 		ply++;
+
+		repetition_index++;
+		repetition_table[repetition_index] = hash_key;
 
 		if (ep != no_sq) hash_key ^= ep_keys[ep];
 		ep = no_sq;
@@ -2630,6 +2742,7 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 		score = -alphaBeta(-beta, -beta + 1, depthleft - 1 - 2);
 
 		ply--;
+		repetition_index--;
 		take_back();
 
 		if (stopped) return 0;
@@ -2639,6 +2752,38 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 		}
 	} 
 	
+	
+	/*-------------RAZORING---------------- 
+	if (depthleft <= 2 && !is_pv_node && !is_king_in_check) {
+		int staticEval = evaluate();
+		//printf("static eval + fut margins = %d\n", staticEval + (FutilityMargins[depthleft] * 3));
+		//printf("Alpha: %d\n", alpha);
+		
+		if (staticEval + (FutilityMargins[depthleft] * 3) < alpha) {
+			score = quiescence(alpha, beta);
+			if (score < alpha) {
+				//printf("Returning alpha!!!!\n\n");
+				//getchar();
+				return alpha;
+			}
+		}
+	} */
+
+	
+	// Razoring v2
+	if (!is_pv_node && !is_king_in_check && depthleft <= 3) {
+		int static_eval = evaluate();
+		int razor_margin = FutilityMargins[depthleft];
+
+		// Only razor if evaluation isn't too far from alpha
+		if (static_eval < alpha - razor_margin) {
+			int q_score = quiescence(alpha - razor_margin, alpha);
+			if (q_score < alpha) {
+				return q_score;
+			}
+		}
+	} 
+
 
 
 	generate_legal_moves(&move_list);
@@ -2650,21 +2795,53 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 
 	order_moves(&move_list);
 
+	int searched_moves = 0; // For late move reductions
+
 	// Search moves
 	for (int i = 0; i < move_list.moveCount; i++) {
 		
 		copy_position();
 		ply++;
 		
+		repetition_index++;
+		repetition_table[repetition_index] = hash_key;
 
 		if (!make_move(move_list.moves[i], all_moves)) {
 			ply--;
+			repetition_index--;
 			continue;
 		}
 
 		legal_moves++;
 		
+		
+		
+		if (searched_moves == 0) {
+			score = -alphaBeta(-beta, -alpha, depthleft - 1);
+		}
 
+		else {
+
+			if (searched_moves >= full_depth_moves && depthleft >= reduction_limit &&
+				!is_king_in_check && !get_move_capture(move_list.moves[i]) && !get_move_promotion(move_list.moves[i])) {
+				score = -alphaBeta(-alpha - 1, -alpha, depthleft - 3);
+			}
+
+			else score = alpha + 1; // Full depth search
+
+
+			if (score > alpha) {
+
+				score = -alphaBeta(-alpha - 1, -alpha, depthleft - 1); // Null window search
+
+				if ((score > alpha) && (score < beta)) {
+					score = -alphaBeta(-beta, -alpha, depthleft - 1); // Re-search
+				}
+			}
+		} 
+
+
+		/*
 		if (foundPV) {
 			score = -alphaBeta(-alpha - 1, -alpha, depthleft - 1);
 			if ((score > alpha) && (score < beta)) {
@@ -2674,15 +2851,19 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 
 		else {
 			score = -alphaBeta(-beta, -alpha, depthleft - 1);
-		}
+		}   */
 
 		ply--;
+		repetition_index--;
 		take_back();
 		
 		if (stopped) return 0;
 
+		searched_moves++;
+
 		// Beta cutoff
 		if (score >= beta) {
+
 			// TT entry write
 			write_hash_entry(beta, depthleft, FAILHIGH);
 
@@ -2734,6 +2915,7 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 	}
 
 	write_hash_entry(alpha, depthleft, node_type);
+	
 
 	return alpha;
 }
@@ -2759,10 +2941,11 @@ void search(int depth) {
 
 	int savedBestMove = 0;  // Store the best move from completed iterations
 
+	int alpha = -inf;
+	int beta = inf;
+
 	for (int currentDepth = 1; currentDepth <= depth; currentDepth++) {
 		if (stopped) break;
-
-		score = alphaBeta(-inf, inf, currentDepth);
 
 		// Only update best move if search completed
 		if (!stopped) {
@@ -2771,6 +2954,20 @@ void search(int depth) {
 		}
 
 		follow_pv = 1;
+
+		score = alphaBeta(alpha, beta, currentDepth);
+
+		/*
+		if ((score <= alpha) || (score >= beta)) {
+			alpha = -inf;
+			beta = inf;
+			continue;
+		}
+
+		alpha = score - 20;
+		beta = score + 20; */
+
+
 
 		printf("info score cp %d depth %d nodes %ld pv ", score, currentDepth, nodes);
 		for (int move = 0; move < pv_length[0]; move++) {
@@ -2879,6 +3076,8 @@ int parse_uci_position(char* cmd) {
 
 	current_cmd += 9; // Shift from 'position' to 'fen' or 'startpos'
 
+	memset(repetition_table, 0ULL, sizeof(repetition_table));
+
 	// Handle startpos
 	if (!strncmp(current_cmd, "startpos", 8)) {
 		parseFen(starting_pos);
@@ -2903,6 +3102,10 @@ int parse_uci_position(char* cmd) {
 
 		char* move = strtok_s(moves, " \n", &context);
 		while (move) {
+
+			repetition_index++;
+			repetition_table[repetition_index] = hash_key;
+
 			if (!parse_uci_move(move)) {
 				printf("info string Invalid move: %s\n", move);
 				return 0;
@@ -3100,10 +3303,11 @@ int main() {
 
 	if (debug) {
 		
-		parseFen("8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - -");
+		parseFen(kiwipete);
 		printf("-------INITIAL POSITION-----------\n");
 		print_board();
 		printf("\n\n\n");
+		search(7);
 		
 		
 	}

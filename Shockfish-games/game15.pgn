@@ -1,0 +1,82 @@
+[Event "Computer chess game"]
+[Site "SETAROBEN"]
+[Date "2024.11.16"]
+[Round "?"]
+[White "Enginev1.2"]
+[Black "Engine"]
+[Result "1/2-1/2"]
+[BlackElo "2000"]
+[ECO "C47"]
+[Opening "Four Knights"]
+[Time "16:31:49"]
+[Variation "Scotch, 4...exd4 5.Nxd4"]
+[WhiteElo "2000"]
+[TimeControl "0+5"]
+[Termination "normal"]
+[PlyCount "95"]
+[WhiteType "program"]
+[BlackType "program"]
+
+1. Nc3 {0.00/11 4} e5 {(Ng8-f6 e2-e4 e7-e5 Bf1-d3 Nb8-c6 Ng1-f3 Bf8-d6 O-O
+O-O Nc3-b5 Nc6-b4 a2-a3 Nb4xd3) 0.00/13 4} 2. Nf3 {(d2-d4 e5xd4 Qd1xd4
+Ng8-f6 Bc1-g5 Bf8-e7 Ng1-f3 Nb8-c6 Qd4-d2 O-O O-O-O) 0.00/11 5} Nc6
+{0.00/14 5} 3. e4 {(e2-e4 Ng8-f6 d2-d4 e5xd4 Nf3xd4 Nc6xd4 Qd1xd4 Bf8-e7
+Bf1-c4 O-O O-O) 0.00/11 5} Nf6 {0.00/14 4} 4. d4 {(Bf1-d3 d7-d5 e4xd5
+Nf6xd5 Bd3-e4 Nd5xc3 d2xc3 Qd8xd1+ Ke1xd1 Bf8-d6 Kd1-e1) 0.00/10 5} exd4
+{0.00/14 5} 5. Nxd4 {0.00/10 5} Nxd4 {0.00/13 4} 6. Qxd4 {0.00/10 5} c5
+{(d7-d6 Bc1-e3 Bc8-e6 Bf1-c4 c7-c5 Bc4-b5+ Nf6-d7 Qd4-d1 Bf8-e7 Bb5xd7+
+Qd8xd7 O-O O-O Nc3-d5) 0.00/12 4} 7. Qd1 {0.00/10 5} d6 {0.00/13 5} 8. Bf4
+{0.00/10 5} Be7 {(Bf8-e7 Bf1-c4 O-O O-O Bc8-e6 Bc4xe6 f7xe6 Rf1-e1 Ra8-c8
+Ra1-c1 e6-e5 Bf4-g3) 0.00/12 5} 9. Bb5+ {(Bf1-c4 O-O O-O Bc8-e6 Bc4xe6
+f7xe6 Rf1-e1 e6-e5 Bf4-g3) 0.00/9 5} Bd7 {0.00/12 4} 10. Bxd7+ {(O-O O-O
+Rf1-e1 Bd7xb5 Nc3xb5 d6-d5 e4xd5 Nf6xd5 Bf4-e5) 0.00/9 5} Qxd7 {0.00/12 4}
+11. Qf3 {0.00/10 5} Rd8 {0.00/13 4} 12. O-O-O {(Nc3-d5 Nf6xd5 e4xd5 Qd7-f5
+O-O g7-g5 Bf4-g3 Qf5xf3 g2xf3 O-O) 0.00/10 5} Qc7 {(Qd7-g4 Nc3-b5 O-O
+Nb5xd6 Be7xd6 Bf4xd6 Qg4xe4 Qf3xe4 Nf6xe4 Bd6xf8 Rd8xf8) 0.00/11 5} 13.
+Rhe1 {(Nc3-d5 Nf6xd5 Rd1xd5 O-O Rh1-d1 Rf8-e8 Kc1-b1 c5-c4 c2-c3 h7-h6)
+0.00/10 5} O-O {(Qc7-b6 Nc3-d5 Nf6xd5 e4xd5 Qb6-c7 Qf3-e4 c5-c4 Kc1-b1
+a7-a5 c2-c3 a5-a4 Qe4-f5) 0.00/12 4} 14. Kb1 {0.00/10 5} Rfe8 {0.00/13 4}
+15. Nb5 {(Qf3-g3 a7-a6 Nc3-d5 Nf6xd5 Rd1xd5 a6-a5 b2-b3 b7-b5 c2-c3) 0.00/9
+5} Qc6 {(Qc7-b6 c2-c4 a7-a6 Nb5-c3 a6-a5 a2-a3 h7-h6 Qf3-e2 Qb6-a6 Nc3-d5
+Nf6xd5 Rd1xd5) 0.00/12 5} 16. c4 {0.00/10 4} a6 {0.00/13 5} 17. Nc3
+{(Nb5-c3 b7-b5 Qf3-e2 b5xc4 Qe2xc4 h7-h6 Qc4-e2 d6-d5 e4xd5 Nf6xd5) 0.00/10
+5} b5 {(b7-b5 Qf3-e2 b5xc4 Qe2xc4 h7-h6 h2-h3 a6-a5 a2-a3 Qc6-c7 Bf4-g3
+g7-g6 Qc4-e2) 0.00/12 5} 18. Qe2 {(Qf3-e2 b5-b4 Nc3-d5 Nf6xd5 c4xd5 Qc6-b6
+Qe2-e3 Be7-f6 Bf4-g5 Bf6xg5) 0.00/10 5} b4 {0.00/13 5} 19. Nd5 {0.00/11 4}
+Nxd5 {0.00/13 5} 20. cxd5 {0.00/10 5} Qb6 {0.00/13 5} 21. Qe3 {0.00/11 5}
+Bf6 {0.00/13 5} 22. Bg5 {0.00/11 5} Bxg5 {0.00/14 5} 23. Qxg5 {0.00/11 5}
+c4 {(h7-h6 Qg5-e3 a6-a5 a2-a3 Qb6-c7 a3xb4 a5xb4 Qe3-f3 c5-c4 h2-h3 c4-c3
+b2xc3 b4xc3 Qf3-f5) 0.00/14 4} 24. Qe3 {(h2-h3 Qb6xf2 Re1-f1 Qf2-c5 Qg5-f5
+Qc5-c7 a2-a3 b4xa3 b2xa3 c4-c3) 0.00/10 5} Qxe3 {(Qb6xe3 Re1xe3 c4-c3
+Rd1-d4 Rd8-b8 Kb1-c1 c3xb2+ Kc1xb2 h7-h6 h2-h3 a6-a5 Kb2-b1 Rb8-c8 Re3-e1
+Rc8-c3 Rd4-d1) 0.00/15 5} 25. Rxe3 {(f2xe3 Re8xe4 Rd1-d4 Rd8-e8 Re1-c1
+Re4xe3 Rd4xc4 Re3-e2 Rc4-c8 Kg8-f8 Rc1-c2 Re2-e1+) 0.00/12 5} Rb8 {0.00/15
+5} 26. Rd4 {(a2-a3 b4xa3 Rd1-d2 a6-a5 Kb1-a2 a3xb2 Rd2xb2 Rb8xb2+ Ka2xb2
+a5-a4 Re3-e1 h7-h6) 0.00/11 5} c3 {(Re8-c8 h2-h3 c4-c3 Kb1-c2 c3xb2+ Kc2xb2
+a6-a5 Rd4-d1 h7-h6 Re3-e1 Rc8-e8 a2-a4 b4xa3/ep+ Kb2xa3 Rb8-d8) 0.00/13 5}
+27. Rc4 {(Rd4-d1 Rb8-c8 Kb1-c2 Rc8-c4 Rd1-e1 c3xb2+ Kc2xb2 Rc4-d4 Re3-e2
+h7-h6 Kb2-b1) 0.00/10 5} cxb2 {0.00/14 5} 28. Kxb2 {0.00/11 4} Rec8
+{0.00/15 5} 29. Rd4 {0.00/12 5} h6 {0.00/14 5} 30. Kb1 {(h2-h3 a6-a5 e4-e5
+d6xe5 Re3xe5 Rc8-e8 Rd4-e4 Re8xe5 Re4xe5 Rb8-d8 Kb2-b1) 0.00/11 5} a5
+{(Rc8-d8 Rd4-c4 Rd8-c8 Rc4xc8+ Rb8xc8 a2-a4 a6-a5 h2-h3 Rc8-d8 Re3-e1
+Rd8-c8 Re1-d1 Rc8-e8 Rd1-d4 Re8-d8) 0.00/14 4} 31. h3 {0.00/11 4} a4
+{0.00/15 5} 32. Re1 {0.00/12 5} Rc3 {0.00/15 5} 33. Red1 {0.00/12 5} a3
+{0.00/15 5} 34. Rc1 {(Rd4-d2 b4-b3 a2xb3 Rc3xb3+ Kb1-a2 Rb3-b2+ Ka2-a1
+Rb8-b7 f2-f3 Kg8-h8 g2-g3 Rb7-b3 Rd2-d3 Rb2-b1+) 0.00/12 5} Rxc1+ {0.00/17
+5} 35. Kxc1 {0.00/13 5} Rc8+ {(Kg8-h7 Kc1-c2 Rb8-c8+ Kc2-b1 Rc8-b8 Kb1-c2)
+0.00/16 5} 36. Kb1 {0.00/13 5} Rb8 {0.00/16 4} 37. Rd3 {(Kb1-c1) 0.00/12 5}
+Re8 {0.00/18 5} 38. f3 {(Rd3-d4 Re8-b8) 0.00/13 5} Rc8 {(Kg8-h7 Rd3-d2
+Kh7-g8 Kb1-c2 f7-f5 Rd2-d4 f5xe4 Rd4xe4 Re8-c8+ Kc2-b3 Rc8-c5 Re4-d4 Kg8-h8
+Kb3xb4 Rc5-c2 Kb4xa3 Rc2xg2) 0.00/16 4} 39. Rd4 {0.00/13 5} Rb8 {(Rc8-e8
+Rd4xb4 f7-f5 e4xf5 Re8-e1+ Kb1-c2 Re1-e2+ Kc2-b3 Re2xg2 Kb3xa3 Rg2-g3
+Rb4-f4 Rg3xh3 f5-f6 g7xf6 Rf4xf6 Rh3-g3 Rf6xd6) 0.00/16 5} 40. Rd2 {0.00/13
+5} b3 {0.00/16 5} 41. axb3 {0.00/15 5} Rxb3+ {0.00/19 5} 42. Ka2 {0.00/14
+5} Re3 {(Kg8-h7 Ka2xb3 Kh7-g6 Rd2-c2 Kg6-g5 Rc2-c7 Kg5-h4 Rc7xf7 g7-g5
+Rf7-c7 Kh4-g3 Rc7-c2 a3-a2 Rc2xa2 Kg3-h2 Ra2-d2 Kh2-g3) 0.00/17 5} 43. Rc2
+{0.00/15 5} Kh7 {0.00/21 5} 44. h4 {0.00/14 5} Kg8 {0.00/18 5} 45. Rc8+
+{(Rc2-c8+ Kg8-h7 Rc8-c2) 0.00/14 5} Kh7 {0.00/19 5} 46. Rc2 {(Rc8-c7
+Re3-e2+ Ka2xa3 Kh7-g8 Rc7-c8+ Kg8-h7 Rc8-c7) 0.00/14 4} Kg8 {(Kh7-g8)
+0.00/20 5} 47. Rc8+ {(Rc2-c8+) 0.00/16 5} Kh7 {0.00/64 0} 48. Rc2 {(Rc8-c7
+Re3-e2+ Ka2xa3 Kh7-g8 Rc7-c8+ Kg8-h7 Rc8-c7) 0.00/14 5 3-fold repetition}
+1/2-1/2
+

@@ -1,0 +1,33 @@
+[Event "Computer chess game"]
+[Site "SETAROBEN"]
+[Date "2024.11.15"]
+[Round "?"]
+[White "Engine"]
+[Black "Engine"]
+[Result "*"]
+[BlackElo "2000"]
+[ECO "C47"]
+[Opening "Four Knights Game"]
+[Time "16:35:00"]
+[Variation "1...Nf6 2.Nf3"]
+[WhiteElo "2000"]
+[TimeControl "0+5"]
+[Termination "unterminated"]
+[PlyCount "17"]
+[WhiteType "program"]
+[BlackType "program"]
+
+1. Nc3 {(Nb1-c3 d7-d5 d2-d4 Bc8-f5 Ng1-f3 Nb8-c6 Bc1-e3 Ng8-f6 Ra1-c1
+Nf6-e4) 0.00/10 4} Nf6 {(Ng8-f6 Ng1-f3 d7-d5 e2-e3 e7-e6 Bf1-e2 Bf8-d6
+d2-d4 O-O O-O) 0.00/10 4} 2. Nf3 {(Ng1-f3 d7-d5 e2-e3 e7-e6 Bf1-b5+ c7-c6
+Bb5-e2 Bf8-d6 d2-d4 O-O O-O) 0.00/10 4} Nc6 {(Nb8-c6 d2-d4 d7-d5 g2-g3
+e7-e6 Bf1-g2 Bf8-d6 O-O O-O Bc1-e3) 0.00/10 4} 3. e4 {0.00/11 4} e5
+{0.00/11 4} 4. Bd3 {(Bf1-d3 d7-d5 e4xd5 Nf6xd5 Bd3-e4 Nd5xc3 d2xc3 Qd8xd1+
+Ke1xd1 Bf8-d6 Kd1-e1) 0.00/10 4} Bd6 {(Bf8-d6 b2-b3 O-O Bc1-b2 Nc6-d4
+Nf3xd4 e5xd4 Nc3-b5 Rf8-e8 O-O) 0.00/10 4} 5. O-O {0.00/11 4} h6 {(h7-h6
+Nc3-d5 O-O c2-c4 b7-b6 Bd3-c2 Bc8-b7 d2-d4 e5xd4 Nf3xd4) 0.00/10 4} 6. Nd5
+{0.00/11 4} O-O {(O-O Rf1-e1 Nf6xd5 e4xd5 Nc6-b4 Nf3xe5 Nb4xd5 Qd1-g4
+Rf8-e8 Qg4-f5) 0.00/10 4} 7. c3 {0.00/10 4} Nxd5 {0.00/11 4} 8. exd5
+{0.00/11 4} a6 {(a7-a6 d5xc6 d7xc6 Bd3-c2 Rf8-e8 Rf1-e1 Bc8-g4 d2-d4 Bg4xf3
+Qd1xf3) 0.00/10 4} 9. dxc6 {0.00/10 2} *
+

@@ -1,0 +1,25 @@
+[Event "Computer chess game"]
+[Site "SETAROBEN"]
+[Date "2024.11.14"]
+[Round "?"]
+[White "Engine [003]"]
+[Black "Engine [002]"]
+[Result "1/2-1/2"]
+[BlackElo "2000"]
+[ECO "A00"]
+[Opening "Dunst (Sleipner-Heinrichsen-Van Geet) Opening"]
+[Time "15:35:19"]
+[WhiteElo "2000"]
+[TimeControl "0+1"]
+[Termination "normal"]
+[PlyCount "69"]
+[WhiteType "program"]
+[BlackType "program"]
+
+1. Nc3 e6 2. e3 Nc6 3. Nf3 Nf6 4. Bb5 a6 5. Be2 Bb4 6. a3 Bd6 7. d3 O-O 8.
+O-O Na7 9. h3 Re8 10. Bd2 h6 11. Rc1 c5 12. Re1 Nc6 13. b3 Rb8 14. Rf1 Qc7
+15. Ne4 Nxe4 16. dxe4 Ne5 17. b4 Nxf3+ 18. Bxf3 Bh2+ 19. Kh1 Be5 20. Qe2
+cxb4 21. axb4 Bb2 22. Rcd1 Be5 23. c3 g6 24. Bg4 f5 25. exf5 exf5 26. Bf3
+d6 27. c4 Be6 28. Qd3 Qxc4 29. Qxc4 Bxc4 30. Rfe1 Bb3 31. Rb1 Ba2 32. Rbc1
+Bb3 33. Rb1 Ba2 34. Rbc1 Bb3 35. Rb1 {3-fold repetition} 1/2-1/2
+

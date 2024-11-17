@@ -1,0 +1,25 @@
+[Event "Computer chess game"]
+[Site "SETAROBEN"]
+[Date "2024.11.11"]
+[Round "?"]
+[White "Engine [001]"]
+[Black "Engine [001]"]
+[Result "1/2-1/2"]
+[BlackElo "2000"]
+[ECO "A00"]
+[Opening "Van Kruij's Opening"]
+[Time "11:44:24"]
+[WhiteElo "2000"]
+[TimeControl "300"]
+[Termination "normal"]
+[PlyCount "58"]
+[WhiteType "program"]
+[BlackType "program"]
+
+1. e3 e6 2. Nc3 Nc6 3. a3 a6 4. d4 d5 5. Nf3 Qf6 6. Be2 b5 7. O-O b4 8.
+axb4 Bxb4 9. Bb5 Bb7 10. e4 axb5 11. Rxa8+ Bxa8 12. exd5 Na7 13. Bg5 Qf5
+14. Qa1 Bxc3 15. Qxa7 f6 16. Qxa8+ Ke7 17. bxc3 fxg5 18. Re1 g6 19. Rxe6+
+Kf7 20. Re5 Qf6 21. Nxg5+ Kg7 22. Ne6+ Kh6 23. Re3 g5 24. Rh3+ Kg6 25. Qe8+
+Qf7 26. Nf8+ Kg7 27. Ne6+ Kg6 28. Nf8+ Kg7 29. Ne6+ Kg6 {3-fold repetition}
+1/2-1/2
+
