@@ -426,7 +426,17 @@ void parseFen(char* fen) {
 	// Generate hash key via Zobrist
 	hash_key = generate_hash();
 
-	
+}
+
+
+
+int getMajorAndMinors() {
+	int numKnights = __popcnt64(bitboards[N] | bitboards[n]);
+	int numBishops = __popcnt64(bitboards[B] | bitboards[b]);
+	int numRooks = __popcnt64(bitboards[R] | bitboards[r]);
+	int numQueens = __popcnt64(bitboards[Q] | bitboards[q]);
+
+	return (numKnights + numBishops + numRooks + numQueens) == 0;
 }
 
 
@@ -771,7 +781,7 @@ void print_occupancy_bits(int piece) {
 //GENERATE ALL POSSIBLE BLOCKER ARRANGEMENTS 
 BBOARD* gen_blocker_patterns(BBOARD attackMask) {
 	
-	int bitCount = count_bits(attackMask);  // Determine the number of set bits
+	int bitCount = __popcnt64(attackMask);  // Determine the number of set bits
 	//printf("Number of non-zero bits: %d\n", bitCount);
 
 	int bitIndexes[16];
@@ -2235,6 +2245,7 @@ int evaluate() {
 #define NO_HASH_ENTRY 100000
 
 #define mate_score 49000
+#define mate_detected 48000
 
 int hash_entries = 0;
 
@@ -2347,6 +2358,7 @@ void write_hash_entry(int score, int depth, int hash_flag) {
 
 
 // MVV_LVA[attacker][target]
+/*
 int mvv_lva[12][12] = {
 	105, 205, 305, 405, 505, 605,  105, 205, 305, 405, 505, 605,
 	104, 204, 304, 404, 504, 604,  104, 204, 304, 404, 504, 604,
@@ -2361,6 +2373,20 @@ int mvv_lva[12][12] = {
 	102, 202, 302, 402, 502, 602,  102, 202, 302, 402, 502, 602,
 	101, 201, 301, 401, 501, 601,  101, 201, 301, 401, 501, 601,
 	100, 200, 300, 400, 500, 600,  100, 200, 300, 400, 500, 600
+}; */
+
+#define MVV_LVA_OFFSET (INT_MAX - 256) // Constants for move scoring
+#define PV_OFFSET 65
+
+int MvvLva[7][6] = {
+	{15, 14, 13, 12, 11, 10}, // victim Pawn
+	{25, 24, 23, 22, 21, 20}, // victim Knight
+	{35, 34, 33, 32, 31, 30}, // victim Bishop
+	{45, 44, 43, 42, 41, 40}, // victim Rook
+	{55, 54, 53, 52, 51, 50}, // victim Queen
+
+	{0, 0, 0, 0, 0, 0}, // victim King
+	{0, 0, 0, 0, 0, 0}, // No piece
 };
 
 int killer_moves[2][max_ply]; // Define killer moves array
@@ -2368,6 +2394,21 @@ int history_moves[12][64]; // Define history moves array
 
 int score_pv, follow_pv; // Define PV move scoring flags
 
+// Futility margins (taken from Blunder)
+int FutilityMargins[9] = {
+	0,
+	100, // depth 1
+	160, // depth 2
+	220, // depth 3
+	280, // depth 4
+	340, // depth 5
+	400, // depth 6
+	460, // depth 7
+	520, // depth 8
+};
+
+// Late Move Pruning Margins (taken from Blunder)
+int LateMovePruningMargins[6] = { 0, 8, 12, 16, 20, 24 };
 
 
 BBOARD getLeastValuablePiece(BBOARD attadef, int side, int* piece) {
@@ -2487,7 +2528,8 @@ int score_move(int move) {
 
 		if (move == pv_table[0][ply]) {
 			score_pv = 0;
-			return 20000;
+			//return 20000;
+			return (MVV_LVA_OFFSET + PV_OFFSET);
 		}
 	}
 
@@ -2495,6 +2537,10 @@ int score_move(int move) {
 	if (get_move_capture(move)) {
 		int piece = get_move_piece(move);
 		int capturedPiece = get_captured_piece(move);
+		
+		//return (MVV_LVA_OFFSET + MvvLva[capturedPiece][piece]);
+
+
 		
 		if (mg_value[piece] > mg_value[capturedPiece]) {
 			
@@ -2506,7 +2552,7 @@ int score_move(int move) {
 		// If piece captured has same or more value than capturing piece
 		else {
 			return (mg_value[capturedPiece] - mg_value[piece] + 10000);
-		}
+		} 
 	}
 
 	// Order quiet moves
@@ -2514,10 +2560,12 @@ int score_move(int move) {
 		
 		if (killer_moves[0][ply] == move) {
 			return 9000;
+			//return (MVV_LVA_OFFSET - 10);
 		}
 
 		else if (killer_moves[1][ply] == move) {
 			return 8000;
+			//return (MVV_LVA_OFFSET - 20);
 		}
 
 		else {
@@ -2656,22 +2704,7 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 	int score = 0;
 	
 	int node_type = FAILOW; // Define node type for storing entries in transposition tables
-
-
-	// Futility margins
-	int FutilityMargins[9] = {
-		0,
-		100, // depth 1
-		160, // depth 2
-		220, // depth 3
-		280, // depth 4
-		340, // depth 5
-		400, // depth 6
-		460, // depth 7
-		520, // depth 8
-	};
-
-
+	int canFutilityPrune = 0;
 
 
 
@@ -2681,6 +2714,16 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 		return 0;
 
 	int is_pv_node = beta - alpha > 1;
+
+	// Mate Distance Pruning
+	if (ply != 0) {
+
+		alpha = max(alpha, -mate_score + ply);
+		beta = min(beta, mate_score - ply - 1);
+		if (alpha >= beta) {
+			return alpha;
+		}
+	}
 
 	
 	if (ply && (score = read_hash_entry(alpha, beta, depthleft)) != NO_HASH_ENTRY && !is_pv_node) {
@@ -2722,11 +2765,19 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 	int evaluation = evaluate();
 
 
-	
+	/*--------------STATIC NULL MOVE PRUNING--------------*/
+	if (!is_king_in_check && !is_pv_node && abs(beta) < mate_detected) {
+		int scoreMargin = 85 * depthleft;
+		if ((evaluation - scoreMargin) >= beta) {
+			return (evaluation - scoreMargin);
+		}
+	} 
+
+
 	
 
 	/*-----------NULL MOVE PRUNING-------------*/
-	if (depthleft >= 3 && !is_king_in_check && evaluation >= beta) {
+	if (depthleft >= 3 && !is_king_in_check && evaluation >= beta && !getMajorAndMinors()) {
 		copy_position();
 		ply++;
 
@@ -2747,7 +2798,7 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 
 		if (stopped) return 0;
 
-		if (score >= beta) {
+		if (score >= beta && abs(score) < mate_detected) {
 			return beta;
 		}
 	} 
@@ -2785,6 +2836,13 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 	} 
 
 
+	/*--------FUTILITY PRUNING CONDITIONS------------*/
+	if (depthleft <= 8 && !is_pv_node && !is_king_in_check && alpha < mate_detected && beta < mate_detected) {
+		int staticScore = evaluate();
+		int margin = FutilityMargins[depthleft];
+		canFutilityPrune = (staticScore + margin) <= alpha;
+	}
+
 
 	generate_legal_moves(&move_list);
 
@@ -2812,14 +2870,47 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 			continue;
 		}
 
+		int in_check = is_square_attacked(
+			(sideToMove == white) ? getLSB(bitboards[K]) : getLSB(bitboards[k]),
+			sideToMove ^ 1);
+
 		legal_moves++;
 		
 		
-		
+		// LATE MOVE PRUNING
+		if (depthleft <= 5 && !is_pv_node && !is_king_in_check && legal_moves > LateMovePruningMargins[depthleft])
+		{
+			int is_tactical = in_check || get_move_promotion(move_list.moves[i]);
+			if (is_tactical) {
+				ply--;
+				repetition_index--;
+				take_back();
+				continue;
+			}
+		} 
+
+
+		// Futility prune
+		if (canFutilityPrune && legal_moves > 1 && !in_check
+			&& !get_move_promotion(move_list.moves[i])
+			&& !get_move_capture(move_list.moves[i])) 
+		{
+			ply--;
+			repetition_index--;
+			take_back();
+			continue;
+		} 
+
+
+
+
+		// Do full search if no moves searched
 		if (searched_moves == 0) {
 			score = -alphaBeta(-beta, -alpha, depthleft - 1);
 		}
 
+
+		/*---------LATE MOVE REDUCTIONS------------*/
 		else {
 
 			if (searched_moves >= full_depth_moves && depthleft >= reduction_limit &&
@@ -2933,6 +3024,7 @@ void search(int depth) {
 	follow_pv = 0;
 	score_pv = 0;
 	stopped = 0;
+	
 
 	memset(killer_moves, 0, sizeof(killer_moves));
 	memset(history_moves, 0, sizeof(history_moves));
@@ -2940,6 +3032,7 @@ void search(int depth) {
 	memset(pv_table, 0, sizeof(pv_table));
 
 	int savedBestMove = 0;  // Store the best move from completed iterations
+	int time_extension = 0;
 
 	int alpha = -inf;
 	int beta = inf;
@@ -2957,19 +3050,39 @@ void search(int depth) {
 
 		score = alphaBeta(alpha, beta, currentDepth);
 
-		/*
+		
 		if ((score <= alpha) || (score >= beta)) {
 			alpha = -inf;
 			beta = inf;
+			currentDepth--;
+
+			if (currentDepth >= 6 && !time_extension) {
+				_time *= (13 / 10);
+				time_extension = 1;
+			}
+
 			continue;
 		}
 
-		alpha = score - 20;
-		beta = score + 20; */
+		alpha = score - 30;
+		beta = score + 30; 
+		
 
+		if (score > mate_detected) {
+			int mateInN = (mate_score - abs(score)) / 2 + 1;
+			printf("MATE IN %d\n", mateInN);
+			printf("info score mate %d depth %d nodes %ld pv ", mateInN, currentDepth, nodes);
+		}
 
+		else if (score < -mate_detected) {
+			int mateInN = -(mate_score - abs(score)) / 2;
+			printf("info score mate %d depth %d nodes %ld pv ", mateInN, currentDepth, nodes);
+		}
 
-		printf("info score cp %d depth %d nodes %ld pv ", score, currentDepth, nodes);
+		else {
+			printf("info score cp %d depth %d nodes %ld pv ", score, currentDepth, nodes);
+		}
+
 		for (int move = 0; move < pv_length[0]; move++) {
 			print_move(pv_table[0][move]);
 			printf(" ");
@@ -3164,7 +3277,7 @@ void parse_uci_go(char* cmd) {
 
 	
 
-	// if move time is not available
+	// if move time is available
 	if (movetime != -1)
 	{
 		// set time equal to move time
@@ -3299,7 +3412,7 @@ int main() {
 	// DO NOT COMMENT OUT INIT ALL
 	init_all();
 
-	int debug = 0;
+	int debug = 1;
 
 	if (debug) {
 		
@@ -3307,8 +3420,7 @@ int main() {
 		printf("-------INITIAL POSITION-----------\n");
 		print_board();
 		printf("\n\n\n");
-		search(7);
-		
+		search(11);
 		
 	}
 
