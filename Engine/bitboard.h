@@ -297,6 +297,8 @@ BBOARD generate_magic_candidate()
 }
 
 
+void create_nnue_input(int* pieces, int* squares);
+
 
 
 

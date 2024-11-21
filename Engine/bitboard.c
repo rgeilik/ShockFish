@@ -7,6 +7,8 @@
 #include <time.h>
 #include <math.h>
 
+#include "nnue_eval.h"
+
 /*
 |---------------------------------------------|
 |                                             |
@@ -984,140 +986,7 @@ int is_square_attacked(int square, int side) {
 	return 0;
 }
 
-// Get all pieces xraying a square
-BBOARD findXrayPieces();
 
-BBOARD xrayRookAttacks(int color, BBOARD occ, int rookSq) {
-	
-	BBOARD attacks = get_rook_attacks(rookSq, occ);
-	
-	BBOARD blockers = ((attacks & occ) & (bitboards[(color) ? R : r]) | bitboards[(color) ? Q : q]);
-	
-	return (attacks ^ get_rook_attacks(rookSq, occ ^ blockers));
-}
-
-
-BBOARD xrayBishopAttacks(int color, BBOARD occ, int bishopSq) {
-	BBOARD attacks = get_bishop_attacks(bishopSq, occ);
-	BBOARD possibleAttacks = bishop_relevant_occupancy(bishopSq);
-
-	// Get piece blockers
-	BBOARD pieceBlockers = (possibleAttacks & (bitboards[(color) ? B : b] | bitboards[(color) ? Q : q]));
-
-	// Get pawn blockers that are in front based on color
-	BBOARD pawnBlockers = (possibleAttacks & bitboards[(color ? P : p)]);
-	if (color) { // white bishop
-		pawnBlockers &= ~(0xFFFFFFFFFFFFFFFFULL << (bishopSq + 1));
-	}
-	else { // black bishop
-		pawnBlockers &= ~(0xFFFFFFFFFFFFFFFFULL >> (64 - bishopSq));
-	}
-
-	BBOARD totalBlockers = (pieceBlockers | pawnBlockers);
-	BBOARD furthestPieceBlockers = getFurthestBishopBlocker(bishopSq, pieceBlockers);
-	BBOARD furthestPawnBlockers = getFurthestBishopBlocker(bishopSq, pawnBlockers);
-
-	while (furthestPieceBlockers) {
-		BBOARD blocker = (1ULL << getLSB(furthestPieceBlockers));
-		int pieceType;
-		
-		int startPiece = (color == white) ? P : p;
-		int endPiece = (color == white) ? Q : q;
-		for (; startPiece <= endPiece; startPiece++) {
-			if (blocker & bitboards[startPiece]) { pieceType = startPiece; break; }
-		}
-		//BBOARD xray_attacks |= (~get_bishop_attacks(bishopSq, furthestPieceBlockers) & possibleAttacks);
-
-		if (pieceType == ((color == white) ? P : p)) {
-
-		}
-
-	}
-	// Get attacks through pieces
-	BBOARD throughPieces = (possibleAttacks);
-
-	// Get attacks through pawns
-	BBOARD throughPawns = 0ULL;
-	while (pawnBlockers) {
-		int pawnSq = getLSB(pawnBlockers);
-		// Get bishop attacks as if the pawn wasn't there
-		BBOARD withoutPawn = get_bishop_attacks(bishopSq, occ ^ (1ULL << pawnSq));
-		// Only include the pawn's attack square if it's on the same diagonal
-		throughPawns |= (pawn_attacks[color][pawnSq] & withoutPawn);
-		pop_bit(pawnBlockers, pawnSq);
-	}
-
-	return throughPieces | throughPawns;
-}
-
-
-BBOARD xrayQueenAttacks(int color, BBOARD occ, int queenSq) {
-	BBOARD attacks = get_queen_attacks(queenSq, occ);
-	BBOARD bishopattacksonfly = bishop_attack_mask(queenSq, 0ULL);
-
-	// Get piece blockers
-	BBOARD pieceBlockers = ((attacks & occ) &
-		((bitboards[(color) ? Q : q] |
-			bitboards[(color) ? R : r] |
-			bitboards[(color) ? B : b])));
-
-
-
-	// Get pawn blockers that are in front
-	BBOARD pawnBlockers = ((bishopattacksonfly & occ) & bitboards[(color ? P : p)]);
-	if (color) {
-		pawnBlockers &= ~(0xFFFFFFFFFFFFFFFFULL << (queenSq + 1));
-	}
-	else {
-		pawnBlockers &= ~(0xFFFFFFFFFFFFFFFFULL >> (64 - queenSq));
-	}
-
-	
-
-	// Get attacks through pieces
-	BBOARD throughPieces = (attacks ^ get_queen_attacks(queenSq, occ ^ pieceBlockers));
-
-	// Get attacks through pawns
-	BBOARD throughPawns = 0ULL;
-	while (pawnBlockers) {
-		int pawnSq = getLSB(pawnBlockers); 
-		
-		// Get queen attacks as if the pawn wasn't there
-		BBOARD withoutPawn = bishopattacksonfly;
-
-		// Get the ray direction from queen to pawn
-		int pawnFile = pawnSq % 8;
-		int pawnRank = pawnSq / 8;
-		int queenFile = queenSq % 8;
-		int queenRank = queenSq / 8;
-
-		// Calculate direction
-		int fileDir = (pawnFile - queenFile) ? (pawnFile - queenFile) / abs(pawnFile - queenFile) : 0;
-		int rankDir = (pawnRank - queenRank) ? (pawnRank - queenRank) / abs(pawnRank - queenRank) : 0;
-
-		// Get pawn's attack squares
-		BBOARD pawnAttacks = pawn_attacks[color][pawnSq];
-
-		// Filter pawn attacks to only include the square that continues along the ray
-		BBOARD validPawnAttacks = 0ULL;
-		while (pawnAttacks) {
-			int attackSq = getLSB(pawnAttacks);
-			int attackFile = attackSq % 8;
-			int attackRank = attackSq / 8;
-
-			// Check if attack square continues along the same direction
-			if ((attackFile - pawnFile) == fileDir && (attackRank - pawnRank) == rankDir) {
-				validPawnAttacks |= (1ULL << attackSq);
-			}
-			pop_bit(pawnAttacks, attackSq);
-		}
-
-		throughPawns |= (validPawnAttacks & withoutPawn);
-		pop_bit(pawnBlockers, pawnSq);
-	}
-
-	return throughPieces | throughPawns;
-}
 
 BBOARD attacksTo(BBOARD occupancy, int sq) {
 	BBOARD knights, kings, bishopsQueens, rooksQueens;
@@ -1978,10 +1847,76 @@ void perft_test(int depth)
 |                                             |
 |---------------------------------------------|
 */
+int nnue_pieces[12] = { 6, 5, 4, 3, 2, 1, 12, 11, 10, 9, 8, 7 };
+
+int nnue_squares[64] = {
+	a1, b1, c1, d1, e1, f1, g1, h1,
+	a2, b2, c2, d2, e2, f2, g2, h2,
+	a3, b3, c3, d3, e3, f3, g3, h3,
+	a4, b4, c4, d4, e4, f4, g4, h4,
+	a5, b5, c5, d5, e5, f5, g5, h5,
+	a6, b6, c6, d6, e6, f6, g6, h6,
+	a7, b7, c7, d7, e7, f7, g7, h7,
+	a8, b8, c8, d8, e8, f8, g8, h8
+};
+
+int nnue_sides[2] = { white, black };
+
+void create_nnue_input(int* pieces, int* squares) {
+	BBOARD bitboard;
+	int piece, square;
+	int index = 2;
+
+	for (int startPiece = P; startPiece <= k; startPiece++) {
+		bitboard = bitboards[startPiece];
+
+		while (bitboard) {
+
+			piece = startPiece;
+			square = getLSB(bitboard);
+
+			if (piece == K) {
+				pieces[0] = nnue_pieces[K];
+				squares[0] = nnue_squares[square];
+			}
+
+			else if (piece == k) {
+				pieces[1] = nnue_pieces[k];
+				squares[1] = nnue_squares[square];
+			}
+
+			else {
+				pieces[index] = nnue_pieces[piece];
+				squares[index] = nnue_squares[square];
+				index++;
+			}
+
+			pop_bit(bitboard, square);
+		}
+	}
+	pieces[index] = 0;
+	squares[index] = 0;
+}
+
+int nnue_eval() {
+	int pieces[33];
+	int squares[33];
+
+	create_nnue_input(pieces, squares);
+	return (5/4 * evaluate_nnue(nnue_sides[sideToMove], pieces, squares));
+}
+
+
 
 // All values taken from Ronald Friedrich's PeSTO eval function
-int mg_value[12] = { 82, 337, 365, 477, 1025, 0, 82, 337, 365, 477, 1025, 0 };
-int eg_value[12] = { 94, 281, 297, 512, 936, 0, 94, 281, 297, 512, 936, 0 };
+const int mg_value[12] = { 82, 337, 365, 477, 1025, 0, 82, 337, 365, 477, 1025, 0 };
+const int eg_value[12] = { 94, 281, 297, 512, 936, 0, 94, 281, 297, 512, 936, 0 };
+
+const int PASSED_PAWN_BONUS[8] = { 0, 10, 20, 30, 50, 70, 90, 200 }; // By rank
+const int ISOLATED_PAWN_PENALTY = 15;
+const int DOUBLED_PAWN_PENALTY = 10;
+const int MOBILITY_BONUS[6] = { 0, 4, 4, 2, 1, 0 }; // N, B, R, Q
+const int KING_SAFETY_PENALTY = 10; // Per missing pawn in shelter
 
 // PSQT
 int mg_pawn_table[64] = {
@@ -2175,6 +2110,11 @@ void init_piece_values() {
 }
 
 
+
+
+
+
+
 int evaluate() {
 	int mg_eval_side[2];
 	int eg_eval_side[2];
@@ -2219,7 +2159,7 @@ int evaluate() {
 	int score = (mgScore * mgPhase + egScore * egPhase) / 24;
 
 	return score; // For NegaMax
-}
+} 
 
 
 
@@ -2254,6 +2194,7 @@ typedef struct {
 	int depth;
 	int eval;
 	int type;
+	int hash_move;
 
 } tt;
 
@@ -2272,6 +2213,7 @@ void clear_hashtable() {
 			hash_table[index].depth = 0;
 			hash_table[index].type = 0;
 			hash_table[index].eval = 0;
+			hash_table[index].hash_move = 0;
 		}
 }
 
@@ -2328,7 +2270,7 @@ int read_hash_entry(int alpha, int beta, int depth) {
 		return NO_HASH_ENTRY;
 }
 
-void write_hash_entry(int score, int depth, int hash_flag) {
+void write_hash_entry(int score, int depth, int hash_flag, int hashmove) {
 
 	int index = hash_key % hash_table_size;
 
@@ -2341,6 +2283,7 @@ void write_hash_entry(int score, int depth, int hash_flag) {
 	entry->eval = score;
 	entry->type = hash_flag;
 	entry->depth = depth;
+	entry->hash_move = hashmove;
 	/*
 	printf("WRITING HASH ENTRY...\n");
 	printf("Score: %d\n", score);
@@ -2464,11 +2407,11 @@ int see(int move) {
 		if (fromSet & allsliders) {
 
 			if (capturingPiece == R || capturingPiece == r || capturingPiece == Q || capturingPiece == q) {
-				attadef |= (rook_attack_mask(get_move_target(move), occ) & verticals);
+				attadef |= (get_rook_attacks(get_move_target(move), occ) & verticals);
 			}
 
 			if (capturingPiece == P || capturingPiece == p || capturingPiece == B || capturingPiece == b || capturingPiece == Q || capturingPiece == q) {
-				attadef |= (bishop_attack_mask(get_move_target(move), occ) & diagonals);
+				attadef |= (get_bishop_attacks(get_move_target(move), occ) & diagonals);
 			}
 			attadef ^= fromSet;
 		}
@@ -2523,18 +2466,27 @@ int compare_moves(const void* a, const void* b) {
 
 int score_move(int move) {
 
+	int index = hash_key % hash_table_size;
+	tt* entry = &hash_table[index];
+
 	// PV move scoring
 	if (score_pv) {
 
 		if (move == pv_table[0][ply]) {
 			score_pv = 0;
-			//return 20000;
-			return (MVV_LVA_OFFSET + PV_OFFSET);
+			return 20000;
+			//return (MVV_LVA_OFFSET + PV_OFFSET);
 		}
 	}
 
+	
+
+	else if (move == entry->hash_move) {
+		return 19000;
+	}
+
 	// Order captures
-	if (get_move_capture(move)) {
+	else if (get_move_capture(move)) {
 		int piece = get_move_piece(move);
 		int capturedPiece = get_captured_piece(move);
 		
@@ -2542,7 +2494,7 @@ int score_move(int move) {
 
 
 		
-		if (mg_value[piece] > mg_value[capturedPiece]) {
+		if (mg_value[piece] >= mg_value[capturedPiece]) {
 			
 			int move_score = see(move);
 			if (move_score > 0) { move_score += 10000; }
@@ -2552,6 +2504,7 @@ int score_move(int move) {
 		// If piece captured has same or more value than capturing piece
 		else {
 			return (mg_value[capturedPiece] - mg_value[piece] + 10000);
+			//return (MvvLva[capturedPiece][piece] + 10000);
 		} 
 	}
 
@@ -2700,12 +2653,13 @@ const int full_depth_moves = 4;
 
 int alphaBeta(int alpha, int beta, int depthleft) {
 
+	if (ply > max_ply - 1) { return evaluate(); }
+
 	int foundPV = 0;
 	int score = 0;
 	
 	int node_type = FAILOW; // Define node type for storing entries in transposition tables
 	int canFutilityPrune = 0;
-
 
 
 
@@ -2739,12 +2693,18 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 	// PV length initialisation
 	pv_length[ply] = ply;
 
+	int is_king_in_check = is_square_attacked(
+		(sideToMove == white) ? getLSB(bitboards[K]) : getLSB(bitboards[k]),
+		sideToMove ^ 1);
+
+	if (is_king_in_check) { depthleft++; }
+
 	if (depthleft == 0) {
 		nodes++;
 		return quiescence(alpha, beta);
 	}
 
-	if (ply > max_ply - 1) { return evaluate(); }
+	
 
 	moveList move_list = {
 		.moves = {0},
@@ -2753,11 +2713,7 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 
 	nodes++;
 
-	int is_king_in_check = is_square_attacked(
-		(sideToMove == white) ? getLSB(bitboards[K]) : getLSB(bitboards[k]),
-		sideToMove ^ 1);
-
-	if (is_king_in_check) { depthleft++; }
+	
 
 	int legal_moves = 0;
 
@@ -2822,7 +2778,7 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 
 	
 	// Razoring v2
-	if (!is_pv_node && !is_king_in_check && depthleft <= 3) {
+	if (!is_pv_node && !is_king_in_check && depthleft <= 2) {
 		int static_eval = evaluate();
 		int razor_margin = FutilityMargins[depthleft];
 
@@ -2881,7 +2837,7 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 		if (depthleft <= 5 && !is_pv_node && !is_king_in_check && legal_moves > LateMovePruningMargins[depthleft])
 		{
 			int is_tactical = in_check || get_move_promotion(move_list.moves[i]);
-			if (is_tactical) {
+			if (!is_tactical) {
 				ply--;
 				repetition_index--;
 				take_back();
@@ -2956,7 +2912,7 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 		if (score >= beta) {
 
 			// TT entry write
-			write_hash_entry(beta, depthleft, FAILHIGH);
+			write_hash_entry(beta, depthleft, FAILHIGH, move_list.moves[i]);
 
 			// Make sure to only add on quiet moves
 			if (!get_move_capture(move_list.moves[i])) {
@@ -2975,12 +2931,16 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 
 			if (!get_move_capture(move_list.moves[i])) {
 				// Store history moves
-				history_moves[get_move_piece(move_list.moves[i])][get_move_target(move_list.moves[i])] += depthleft;
+				history_moves[get_move_piece(move_list.moves[i])][get_move_target(move_list.moves[i])] += (depthleft * depthleft + depthleft - 1);
 				
 			}
 
 			alpha = score;
-			foundPV = 1;
+			//foundPV = 1;
+
+			// Write move to TT as hash move
+			write_hash_entry(alpha, depthleft, node_type, move_list.moves[i]);
+
 
 			// Write move to PV
 			pv_table[ply][ply] = move_list.moves[i];
@@ -3005,7 +2965,11 @@ int alphaBeta(int alpha, int beta, int depthleft) {
 		}
 	}
 
-	write_hash_entry(alpha, depthleft, node_type);
+	
+
+	if (node_type == FAILOW) {
+		write_hash_entry(alpha, depthleft, node_type, 0);
+	}
 	
 
 	return alpha;
@@ -3230,6 +3194,8 @@ int parse_uci_position(char* cmd) {
 	return 1;
 }
 
+#define MOVE_OVERHEAD 200
+
 void parse_uci_go(char* cmd) {
 	reset_time_control();
 
@@ -3303,13 +3269,13 @@ void parse_uci_go(char* cmd) {
 		_time = (_time / movestogo);
 
 		// disable time buffer when time is almost up
-		if (_time > 1500) _time -= 50;
+		if (_time > 1500) _time -= MOVE_OVERHEAD;
 
 		// init stoptime
-		stoptime = starttime + _time + inc;
+		stoptime = (starttime + _time + (inc - MOVE_OVERHEAD));
 
 		// treat increment as seconds per move when time is almost up
-		if (_time < 1500 && inc && depth == 64) stoptime = starttime + inc - 50;
+		if (_time < 1500 && inc && depth == 64) stoptime = starttime + (inc - MOVE_OVERHEAD) + 200;
 	}
 
 	// if depth is not available
@@ -3406,6 +3372,8 @@ void init_all() {
 	//init_hash_table(20);
 	clear_hashtable();
 	init_piece_values();
+	init_nnue("nn-6b4236f2ec01.nnue");
+	
 }
 
 int main() {
@@ -3420,8 +3388,7 @@ int main() {
 		printf("-------INITIAL POSITION-----------\n");
 		print_board();
 		printf("\n\n\n");
-		search(11);
-		
+		search(12);
 	}
 
 
@@ -3429,8 +3396,7 @@ int main() {
 	else {
 		uci_loop();
 	}
-	
-	
+
 	return 0;
 }
 

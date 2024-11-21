@@ -3,12 +3,20 @@
   <ItemGroup>
     <ClCompile Include="bitboard.c" />
     <ClCompile Include="randomstuff.h" />
+    <ClCompile Include="nnue_eval.c" />
+    <ClCompile Include="nnue\misc.cpp" />
+    <ClCompile Include="nnue\nnue.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="utility.h" />
     <ClInclude Include="bitboard.h" />
+    <ClInclude Include="nnue_eval.h" />
+    <ClInclude Include="nnue\misc.h" />
+    <ClInclude Include="nnue\nnue.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="perft_debug.py" />
+    <None Include="nnue\Makefile" />
+    <None Include="nnuetest.py" />
   </ItemGroup>
 </Project>
